@@ -107,6 +107,8 @@ static partial class Elevated
                     catch (JsonException) { Log.Write("helper sent a line that isn't an event"); continue; }
                     if (e is null) continue;
                     if (e.Done == true) return;
+                    // The helper doesn't write files as admin. It sends its errors here to be logged.
+                    if (e.State == "helper-error") { Log.Write($"installer helper: {e.Message}"); continue; }
                     if (e.LocalId is { } id && e.State is "installed" or "present" or "restart" or "failed" or "skipped")
                         finished.Add(id);
                     await report(e);
@@ -130,9 +132,12 @@ static partial class Elevated
         if (args.Length != 3 || !args[1].StartsWith("rehome-", StringComparison.Ordinal) || !int.TryParse(args[2], out var parentPid))
             return 2;
 
+        // Outside the try so the pipe is still open when the catch reports an error over it.
+        NamedPipeClientStream? client = null;
+        StreamWriter? writer = null;
         try
         {
-            using var client = new NamedPipeClientStream(".", args[1], PipeDirection.InOut, PipeOptions.Asynchronous);
+            client = new NamedPipeClientStream(".", args[1], PipeDirection.InOut, PipeOptions.Asynchronous);
             client.Connect(15_000);
 
             // Only the window that started us may drive us.
@@ -140,7 +145,7 @@ static partial class Elevated
                 return 3;
 
             var reader = new StreamReader(client);
-            var writer = new StreamWriter(client) { AutoFlush = true };
+            var send = writer = new StreamWriter(client) { AutoFlush = true };
             var request = JsonSerializer.Deserialize(reader.ReadLine() ?? "", RunJson.Default.RunRequest);
             if (request?.Items is not { Count: > 0 and <= 2000 } items)
                 return 4;
@@ -159,17 +164,22 @@ static partial class Elevated
 
             Runner.Run(items, async e =>
             {
-                try { await writer.WriteLineAsync(JsonSerializer.Serialize(e, RunJson.Default.RunEvent)); }
+                try { await send.WriteLineAsync(JsonSerializer.Serialize(e, RunJson.Default.RunEvent)); }
                 catch (IOException) { stop = true; }
             }, () => stop, CancellationToken.None).GetAwaiter().GetResult();
             return 0;
         }
         catch (Exception e)
         {
-            // Headless and elevated: there's no window to show this in, and the app's crash handlers aren't
-            // installed on this path. Log it and let the window report the helper stopped.
-            Log.Write(e);
+            // Headless and elevated: no window, and no crash handlers on this path. Writing the log from here
+            // would be an admin file operation in a folder the user controls, so the window logs it instead.
+            try { writer?.WriteLine(JsonSerializer.Serialize(new RunEvent { State = "helper-error", Message = e.ToString() }, RunJson.Default.RunEvent)); }
+            catch (Exception) { }
             return 5;
+        }
+        finally
+        {
+            client?.Dispose();
         }
     }
 

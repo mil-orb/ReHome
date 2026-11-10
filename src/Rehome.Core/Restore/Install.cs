@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using Rehome.Scan;
 
 namespace Rehome.Restore;
 
@@ -59,11 +60,35 @@ internal static partial class WingetCli
         return args;
     }
 
-    /// <summary>winget's app execution alias. Present for every user with App Installer.</summary>
+    const string AppInstaller = "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe";
+
+    /// <summary>
+    /// winget.exe inside App Installer's own package folder, signed by Microsoft. This runs elevated, so it never
+    /// starts the app execution alias in %LOCALAPPDATA%\Microsoft\WindowsApps: the user can write there, and
+    /// anything that swapped the alias would get administrator rights without another prompt.
+    /// </summary>
     public static string? Path()
     {
-        var alias = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "WindowsApps", "winget.exe");
-        return File.Exists(alias) ? alias : null;
+        string? exe;
+        try
+        {
+            var newest = new Windows.Management.Deployment.PackageManager()
+                .FindPackagesForUser("", AppInstaller)
+                .OrderByDescending(p => p.Id.Version.Major).ThenByDescending(p => p.Id.Version.Minor)
+                .ThenByDescending(p => p.Id.Version.Build).ThenByDescending(p => p.Id.Version.Revision)
+                .FirstOrDefault();
+            exe = newest is null ? null : System.IO.Path.Combine(newest.InstalledPath, "winget.exe");
+        }
+        catch (Exception e) when (e is System.Runtime.InteropServices.COMException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
+        }
+
+        // Package folders under Program Files\WindowsApps are owned by SYSTEM and read-only to the user.
+        var windowsApps = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "WindowsApps") + System.IO.Path.DirectorySeparatorChar;
+        if (exe is null || !System.IO.Path.GetFullPath(exe).StartsWith(windowsApps, StringComparison.OrdinalIgnoreCase))
+            return null;
+        return Authenticode.Read(exe, "winget") is { Valid: true, Organization: "Microsoft Corporation" } ? exe : null;
     }
 
     /// <summary>Runs one install. Returns winget's exit code as an HRESULT (0 is success).</summary>

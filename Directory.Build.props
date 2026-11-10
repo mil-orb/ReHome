@@ -9,6 +9,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <Version>0.1.0</Version>
+    <!-- No DOTNET_STARTUP_HOOKS: an environment variable must not load code into the elevated helper. -->
+    <StartupHookSupport>false</StartupHookSupport>
   </PropertyGroup>
 
   <PropertyGroup>

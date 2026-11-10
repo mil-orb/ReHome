@@ -89,7 +89,7 @@ Links:
 - https only, with a host and no user info. Catalog pages are rebuilt from the package id: the winget-pkgs manifest folder on GitHub, or the apps.microsoft.com listing. Vendor pages come from the winget manifest or the app's own uninstall entry.
 - The page sends an app id and a link kind; the host looks the URL up in its own copy of the scan and opens it. Rows for vendor-site apps show the link's host before you open it.
 
-Known gap: the scan file is trusted input. Someone who can edit it could point a vendor link at another https site, or swap a winget id for a different real package. That package would still be hash- and signer-checked and still come from winget, but it wouldn't be what you had. Signing the scan file is planned alongside the encrypted package.
+Known gap: the scan file is trusted input. Someone who can edit it could point a vendor link at another https site, or swap a winget id for a different real package. That package would still be hash- and signer-checked and still come from winget, but it wouldn't be what you had. The expected signer comes from the same file, so an edited scan can name the swapped package's real signer and pass as Trusted. Signing the scan file is planned alongside the encrypted package.
 
 The scan itself is read-only, runs unelevated, and makes no network calls beyond winget's own catalog queries. App icons come from each app's installed files (MSIX logo, uninstall entry icon, or main exe), never from the network.
 
@@ -100,6 +100,9 @@ Installs need administrator rights; the window doesn't. On Install, the window s
 - The pipe name is random and its ACL admits only the current user. It's created first-instance only.
 - Each side checks the other's process id (`GetNamedPipeClientProcessId` / `GetNamedPipeServerProcessId`), and the helper checks the window runs from the same exe.
 - The helper accepts 1 to 2000 items and re-validates every field against allowlists before building winget arguments. It never parses installers.
+- It starts `winget.exe` from App Installer's own package folder under `C:\Program Files\WindowsApps` (owned by SYSTEM), and only after checking it's validly signed by Microsoft Corporation. The `winget` alias in `%LOCALAPPDATA%\Microsoft\WindowsApps` is never used elevated, since the user can write to that folder.
+- .NET startup hooks are compiled out, so `DOTNET_STARTUP_HOOKS` can't load a DLL into it.
+- It writes no files. Errors go back over the pipe and the window writes them to the log.
 - Stop, or closing the window, lets the current installer finish and skips the rest. Closing mid-run asks first.
 
 If you approve the prompt with a different administrator account, the helper can't open the pipe; Rehome says so and nothing installs.

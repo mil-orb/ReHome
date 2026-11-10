@@ -186,21 +186,29 @@ sealed class Bridge(MainForm owner, Action<string> post)
             await Task.Run(() =>
             {
                 using (var source = new FileStream(exe, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete))
-                using (var copy = new FileStream(staging, FileMode.Create, FileAccess.Write, FileShare.None))
-                    ScanInExe.Write(source, ScanInExe.Read(source).Program, scan, copy);
+                {
+                    // Read before the staging file exists, so a damaged copy of Rehome leaves nothing behind.
+                    var program = ScanInExe.Read(source).Program;
+                    File.Delete(staging);
+                    using var copy = new FileStream(staging, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                    ScanInExe.Write(source, program, scan, copy);
+                }
                 File.Move(staging, to, overwrite: true);
             });
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             Log.Write(e);
+            throw new RehomeException("Couldn't write there. Pick another place, and check it has about 60 MB free.");
+        }
+        finally
+        {
             try { File.Delete(staging); }
             catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException) { }
-            throw new RehomeException("Couldn't write there. Pick another place, and check it has about 60 MB free.");
         }
 
         _exported = to;
-        Log.Write($"exported {snapshot.Apps.Count} apps to {to}");
+        Log.Write($"exported {chosen.Apps.Count} apps to {to}");
         return Json(w =>
         {
             w.WriteBoolean("exported", true);

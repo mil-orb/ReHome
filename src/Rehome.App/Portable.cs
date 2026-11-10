@@ -27,14 +27,19 @@ static class Portable
     public static bool Restart(ref string[] args)
     {
         var at = Array.IndexOf(args, OriginFlag);
+        var exe = Environment.ProcessPath;
         if (at >= 0 && at == args.Length - 2)
         {
-            Origin = Path.GetFullPath(args[at + 1]);
+            var origin = args[at + 1];
             args = args[..at];
-            return false;
+            // Only the cached copy is started with --origin. Anywhere else, the flag is ignored.
+            if (exe is not null && Path.GetFullPath(exe).StartsWith(Root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                Origin = Path.GetFullPath(origin);
+                return false;
+            }
         }
 
-        var exe = Environment.ProcessPath;
         // A developer build, or a folder someone set up by hand: the winmd is already where Windows looks.
         if (exe is null || File.Exists(Path.Combine(Path.GetDirectoryName(exe)!, Winmd)))
             return false;
