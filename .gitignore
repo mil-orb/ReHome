@@ -480,3 +480,12 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Rehome
+# Vite output, rebuilt and embedded by the App project on every build.
+src/Rehome.App/ui/dist/
+# Local agent and editor state.
+.claude/
+# Scans and exports made while testing. Real ones list a PC's apps.
+/scan*.json
+/out/

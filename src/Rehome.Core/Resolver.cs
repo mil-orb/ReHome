@@ -3,13 +3,17 @@ using System.Text.RegularExpressions;
 
 namespace Rehome;
 
-internal sealed record CatalogEntry(string Id, string Name, string? Publisher, string Source);
+/// <summary>FamilyNames is filled for Store hits when the Store reports it. It's the exact identity of an MSIX app.</summary>
+internal sealed record CatalogEntry(string Id, string Name, string? Publisher, string Source, IReadOnlyList<string>? FamilyNames = null);
 
 /// <summary>Read-only view of the package catalogs. Real one talks to winget; tests use a stub.</summary>
 internal interface ICatalog
 {
     /// <summary>Name search in one source: "winget" or "msstore". Must be safe to call from several threads.</summary>
     IReadOnlyList<CatalogEntry> Search(string name, string source);
+
+    /// <summary>The Store listing for one package family, if the Store has exactly one. Exact identity, no name rules.</summary>
+    CatalogEntry? StoreListing(string familyName) => null;
 }
 
 /// <summary>
@@ -50,7 +54,19 @@ internal static partial class Resolver
         // 4. Same normalized name and publisher in an official catalog. Plausible, never automatic.
         //    Store-signed packages are looked up in the Store, everything else in winget.
         var source = item.Msix?.SignatureKind == "Store" ? "msstore" : "winget";
-        if (Guess(item, catalog, source) is { } guess)
+        if (source == "msstore")
+            foreach (var family in item.FamilyNames)
+                if (catalog.StoreListing(family) is { } listing)
+                    return Make(item, Status.Ready, new CatalogRef(listing.Id, "msstore"));
+
+        var hits = item.FamilyNames.Count > 0 || Guessable(item) ? catalog.Search(StripNoise(item.Name), source) : [];
+
+        // 4a. A Store listing whose package family is the installed one is the same app, whatever its listing is
+        //     called ("Microsoft To Do" installs as "Microsoft To Do: Lists, Tasks & Reminders").
+        if (SameFamily(item, hits) is { } same)
+            return Make(item, Status.Ready, new CatalogRef(same.Id, same.Source));
+
+        if (Guess(item, hits, source) is { } guess)
             return Make(item, Status.Guess, new CatalogRef(guess.Id, guess.Source));
 
         return Make(item, Status.Manual);
@@ -64,11 +80,23 @@ internal static partial class Resolver
         Status = status,
         Package = package,
         Signer = i.Signer,
+        System = Categories.IsSystem(i, package) ? true : null,
         LocalId = i.LocalId,
     };
 
+    static CatalogEntry? SameFamily(Installed item, IReadOnlyList<CatalogEntry> hits)
+    {
+        if (item.FamilyNames.Count == 0)
+            return null;
+        var same = hits.Where(c => c.FamilyNames?.Intersect(item.FamilyNames, StringComparer.OrdinalIgnoreCase).Any() == true).ToList();
+        return same.Count == 1 ? same[0] : null;
+    }
+
+    /// <summary>Part of Windows, or an app Windows installs itself. A fresh install has these, so they're left out.</summary>
     static bool IsOperatingSystem(Installed i) =>
-        i.Msix is { } m && (m.IsFramework || m.SignatureKind is "System" or "None");
+        i.Msix is { } m && (m.IsFramework || m.SignatureKind is "System" or "None")
+        || i.ShipsWithWindows
+        || WindowsApps.IsBuiltInDesktop(i.Name, i.Correlated);
 
     static string? Launcher(Installed item)
     {
@@ -76,18 +104,20 @@ internal static partial class Resolver
         return key.StartsWith("Steam App ", StringComparison.Ordinal) ? "Steam" : null;
     }
 
-    static CatalogEntry? Guess(Installed item, ICatalog catalog, string source)
+    static bool Guessable(Installed item) => NormalizeName(item.Name).Length >= 3 && NormalizePublisher(item.Publisher).Length > 0;
+
+    static CatalogEntry? Guess(Installed item, IReadOnlyList<CatalogEntry> found, string source)
     {
+        if (!Guessable(item))
+            return null;
         var name = NormalizeName(item.Name);
         var publisher = NormalizePublisher(item.Publisher);
-        if (name.Length < 3 || publisher.Length == 0)
-            return null;
 
         // Store packages carry a signed publisher already; the Store often omits it in search results.
         bool SamePublisher(CatalogEntry c) =>
             NormalizePublisher(c.Publisher) == publisher || (source == "msstore" && c.Publisher is null);
 
-        var hits = catalog.Search(StripNoise(item.Name), source)
+        var hits = found
             .Where(c => NormalizeName(c.Name) == name && SamePublisher(c))
             .ToList();
 

@@ -1,18 +1,16 @@
 using System.Diagnostics;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Rehome;
-using Rehome.Scan;
 
 return Cli.Run(args);
-
-internal sealed class RehomeException(string message) : Exception(message);
 
 internal static class Cli
 {
     const string Usage = """
-        rehome scan            List installed apps and how each one can be reinstalled
-        rehome scan -o FILE    Write the scan as JSON to FILE
+        rehome scan                  List installed apps and how each one can be reinstalled
+        rehome scan -o FILE          Write the scan as JSON to FILE
+        rehome install FILE          Verify and install the apps in a scan, asking about any that don't check out
+        rehome install FILE --yes    Same, without asking: installs only apps that pass every check
+        rehome verify FILE           Download and check every installer without installing anything
         """;
 
     public static int Run(string[] args)
@@ -23,6 +21,10 @@ internal static class Cli
             {
                 ["scan"] => Scan(output: null),
                 ["scan", "-o" or "--out", var file] => Scan(output: file),
+                ["install", var plan, "--yes"] => Install.Run(plan, yes: true).GetAwaiter().GetResult(),
+                ["install", "--yes", var plan] => Install.Run(plan, yes: true).GetAwaiter().GetResult(),
+                ["install", var plan] => Install.Run(plan, yes: false).GetAwaiter().GetResult(),
+                ["verify", var plan] => Install.Run(plan, yes: true, verifyOnly: true).GetAwaiter().GetResult(),
                 ["--version"] => Print(typeof(Cli).Assembly.GetName().Version!.ToString(3)),
                 _ => Fail(Usage, 2),
             };
@@ -33,30 +35,27 @@ internal static class Cli
         }
         catch (System.Runtime.InteropServices.COMException e)
         {
-            return Fail($"winget isn't available ({e.HResult:X8}). Install App Installer from the Microsoft Store.", 1);
+            return Fail($"winget isn't responding ({e.HResult:X8}). Update App Installer from the Microsoft Store.", 1);
+        }
+        catch (UnauthorizedAccessException e)
+        {
+            return Fail($"Windows refused access: {e.Message}", 1);
+        }
+        catch (IOException e)
+        {
+            return Fail($"Couldn't read or write a file: {e.Message}", 1);
         }
     }
 
     static int Scan(string? output)
     {
         var clock = Stopwatch.StartNew();
-        var inventory = Inventory.Open();
-        var installed = inventory.ReadInstalled();
-        var apps = Timing.Time("resolve", () => Resolver.Resolve(installed, inventory));
-
-        var scan = new Snapshot
-        {
-            Machine = Environment.MachineName,
-            Taken = DateTimeOffset.Now,
-            Winget = inventory.WingetVersion,
-            Apps = apps,
-        };
-
-        var json = JsonSerializer.Serialize(scan, Json.Default.Snapshot);
+        var snapshot = Scanner.Run();
+        var json = Scanner.ToJson(snapshot);
 
         if (output is not null)
         {
-            WriteAtomic(output, json);
+            Files.WriteAtomic(output, ScanSeal.Seal(snapshot));
         }
         else if (Console.IsOutputRedirected)
         {
@@ -65,22 +64,12 @@ internal static class Cli
         }
         else
         {
-            Human.Print(apps);
+            Human.Print(snapshot.Apps);
         }
 
-        Console.Error.WriteLine(Human.Summary(apps, clock.Elapsed));
+        Console.Error.WriteLine(Human.Summary(snapshot.Apps, clock.Elapsed));
         return 0;
     }
-
-    /// <summary>Write next to the target, then rename. A crash never leaves half a file behind.</summary>
-    static void WriteAtomic(string path, string contents)
-    {
-        var full = Path.GetFullPath(path);
-        var temp = full + ".tmp";
-        File.WriteAllText(temp, contents);
-        File.Move(temp, full, overwrite: true);
-    }
-
     static int Print(string text)
     {
         Console.Out.WriteLine(text);
@@ -96,17 +85,36 @@ internal static class Cli
 
 internal static class Human
 {
+    // What needs you goes last, right above the summary, where the terminal leaves you.
+    static readonly Status[] Order = [Status.Ready, Status.Launcher, Status.Manual, Status.Guess];
+
+    const int MaxName = 44;
+
     public static void Print(IReadOnlyList<App> apps)
     {
-        foreach (var group in apps.Where(a => a.Status != Status.Companion).GroupBy(a => a.Status))
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        var width = Math.Min(MaxName, apps.Select(a => a.Name.Length).DefaultIfEmpty(0).Max());
+
+        foreach (var status in Order)
         {
+            var group = apps.Where(a => a.Status == status).ToList();
+            if (group.Count == 0)
+                continue;
+
             Console.WriteLine();
-            Console.WriteLine(Label(group.Key));
+            Console.WriteLine(Label(status));
             foreach (var app in group)
-                Console.WriteLine($"  {app.Name,-44} {app.Package?.Id ?? app.Parent ?? ""}");
+            {
+                Console.WriteLine($"  {Fit(app.Name, width)}  {app.Package?.Id ?? app.Parent ?? ""}".TrimEnd());
+                foreach (var setting in app.Settings ?? [])
+                    Console.WriteLine($"    {setting.Label}");
+            }
         }
         Console.WriteLine();
     }
+
+    static string Fit(string s, int width) =>
+        s.Length <= width ? s.PadRight(width) : s[..(width - 1)] + "…";
 
     public static string Summary(IReadOnlyList<App> apps, TimeSpan elapsed)
     {
@@ -123,11 +131,3 @@ internal static class Human
         _ => s.ToString(),
     };
 }
-
-[JsonSourceGenerationOptions(
-    WriteIndented = true,
-    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
-    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    UseStringEnumConverter = true)]
-[JsonSerializable(typeof(Snapshot))]
-internal sealed partial class Json : JsonSerializerContext;

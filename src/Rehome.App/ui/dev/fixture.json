@@ -1,0 +1,665 @@
+{
+  "format": 1,
+  "machine": "DEMO-PC",
+  "taken": "2026-11-10T12:00:00-05:00",
+  "winget": "1.29.380",
+  "apps": [
+    {
+      "name": "7-Zip 19.00 (x64)",
+      "publisher": "Igor Pavlov",
+      "version": "19.00",
+      "status": "Ready",
+      "package": {
+        "id": "7zip.7zip",
+        "source": "winget"
+      },
+      "links": {
+        "homepage": "https://7-zip.org/download.html",
+        "publisher": "https://7-zip.org/",
+        "support": "https://7-zip.org/support.html",
+        "license": "https://7-zip.org/license.txt",
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/7/7zip/7zip"
+      },
+      "localId": "ARP\\Machine\\X64\\7-Zip"
+    },
+    {
+      "name": "Blender",
+      "publisher": "Blender Foundation",
+      "version": "5.2.2",
+      "status": "Ready",
+      "package": {
+        "id": "BlenderFoundation.Blender",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "Blender Foundation",
+        "name": "Blender Foundation",
+        "subject": "CN=Blender Foundation, O=Blender Foundation, L=Amsterdam, S=Noord-Holland, C=NL",
+        "from": "msi",
+        "valid": true
+      },
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/b/BlenderFoundation/Blender"
+      },
+      "localId": "ARP\\Machine\\X64\\{4B0BC91B-29A6-4B8C-A60B-6154FD3AE3AD}"
+    },
+    {
+      "name": "Docker Desktop",
+      "publisher": "Docker Inc.",
+      "version": "4.98.0",
+      "status": "Ready",
+      "package": {
+        "id": "Docker.DockerDesktop",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "Docker Inc",
+        "name": "Docker Inc",
+        "subject": "CN=Docker Inc, O=Docker Inc, L=Palo Alto, S=California, C=US, SERIALNUMBER=4817464, OID.2.5.4.15=Private Organization, OID.1.3.6.1.4.1.311.60.2.1.2=Delaware, OID.1.3.6.1.4.1.311.60.2.1.3=US",
+        "from": "exe",
+        "valid": true
+      },
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/d/Docker/DockerDesktop"
+      },
+      "localId": "ARP\\Machine\\X64\\Docker Desktop"
+    },
+    {
+      "name": "Git",
+      "publisher": "The Git Development Community",
+      "version": "2.52.0",
+      "status": "Ready",
+      "package": {
+        "id": "Git.Git",
+        "source": "winget"
+      },
+      "settings": [
+        {
+          "id": "config",
+          "label": "Config",
+          "files": [
+            {
+              "path": "{Home}\\.gitconfig",
+              "size": 1024
+            }
+          ]
+        }
+      ],
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/g/Git/Git"
+      },
+      "localId": "ARP\\Machine\\X64\\Git_is1"
+    },
+    {
+      "name": "GitHub CLI",
+      "publisher": "GitHub, Inc.",
+      "version": "2.86.0",
+      "status": "Ready",
+      "package": {
+        "id": "GitHub.cli",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "GitHub, Inc.",
+        "name": "GitHub, Inc.",
+        "subject": "CN=\"GitHub, Inc.\", O=\"GitHub, Inc.\", L=San Francisco, S=California, C=US",
+        "from": "msi",
+        "valid": true
+      },
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/g/GitHub/cli"
+      },
+      "localId": "ARP\\Machine\\X64\\{2FAFC7E5-97C0-4178-A1EB-C08AC83FA13B}"
+    },
+    {
+      "name": "Microsoft Visual Studio Code (User)",
+      "publisher": "Microsoft Corporation",
+      "version": "1.140.0",
+      "status": "Ready",
+      "package": {
+        "id": "Microsoft.VisualStudioCode",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "Microsoft Corporation",
+        "name": "Microsoft Corporation",
+        "subject": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "from": "exe",
+        "valid": true
+      },
+      "settings": [
+        {
+          "id": "settings",
+          "label": "Settings",
+          "files": [
+            {
+              "path": "{AppData}\\Code\\User\\settings.json",
+              "size": 1024
+            }
+          ]
+        },
+        {
+          "id": "keybindings",
+          "label": "Keybindings",
+          "files": [
+            {
+              "path": "{AppData}\\Code\\User\\keybindings.json",
+              "size": 1024
+            }
+          ]
+        },
+        {
+          "id": "snippets",
+          "label": "Snippets",
+          "files": [
+            {
+              "path": "{AppData}\\Code\\User\\snippets\\python.json",
+              "size": 1024
+            }
+          ]
+        },
+        {
+          "id": "extensions",
+          "label": "Extensions",
+          "files": [
+            {
+              "path": "{Home}\\.vscode\\extensions\\extensions.json",
+              "size": 1024
+            }
+          ]
+        }
+      ],
+      "links": {
+        "homepage": "https://code.visualstudio.com/",
+        "publisher": "https://www.microsoft.com/",
+        "support": "https://support.microsoft.com/",
+        "license": "https://code.visualstudio.com/license",
+        "privacy": "https://privacy.microsoft.com/",
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/m/Microsoft/VisualStudioCode"
+      },
+      "localId": "ARP\\User\\X64\\{771FD6B0-FA20-440A-A002-3B3BAC16DC50}_is1"
+    },
+    {
+      "name": "Node.js",
+      "publisher": "Node.js Foundation",
+      "version": "24.13.0",
+      "status": "Ready",
+      "package": {
+        "id": "OpenJS.NodeJS.LTS",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "OpenJS Foundation",
+        "name": "OpenJS Foundation",
+        "subject": "CN=OpenJS Foundation, O=OpenJS Foundation, L=San Francisco, S=California, C=US",
+        "from": "msi",
+        "valid": true
+      },
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/o/OpenJS/NodeJS/LTS"
+      },
+      "localId": "ARP\\Machine\\X64\\{F4937DE9-DA3D-4B72-9930-F3028D671956}"
+    },
+    {
+      "name": "Notepad++ (64-bit x64)",
+      "publisher": "Notepad++ Team",
+      "version": "8.6.6",
+      "status": "Ready",
+      "package": {
+        "id": "Notepad++.Notepad++",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "Notepad++",
+        "name": "Notepad++",
+        "subject": "CN=\"Notepad++\", O=\"Notepad++\", L=Saint Cloud, S=Ile-de-France, C=FR",
+        "from": "exe",
+        "valid": true
+      },
+      "settings": [
+        {
+          "id": "settings",
+          "label": "Settings",
+          "files": [
+            {
+              "path": "{AppData}\\Notepad++\\config.xml",
+              "size": 1024
+            }
+          ]
+        },
+        {
+          "id": "shortcuts",
+          "label": "Shortcuts",
+          "files": [
+            {
+              "path": "{AppData}\\Notepad++\\shortcuts.xml",
+              "size": 1024
+            }
+          ]
+        },
+        {
+          "id": "theme",
+          "label": "Theme",
+          "files": [
+            {
+              "path": "{AppData}\\Notepad++\\stylers.xml",
+              "size": 1024
+            }
+          ]
+        }
+      ],
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/n/Notepad++/Notepad++"
+      },
+      "localId": "ARP\\Machine\\X64\\Notepad++"
+    },
+    {
+      "name": "OBS Studio",
+      "publisher": "OBS Project",
+      "version": "32.0.4",
+      "status": "Ready",
+      "package": {
+        "id": "OBSProject.OBSStudio",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "OBS Project, LLC",
+        "name": "OBS Project, LLC",
+        "subject": "CN=\"OBS Project, LLC\", O=\"OBS Project, LLC\", L=Sheridan, S=Wyoming, C=US, SERIALNUMBER=2023-001272252, OID.2.5.4.15=Private Organization, OID.1.3.6.1.4.1.311.60.2.1.2=Wyoming, OID.1.3.6.1.4.1.311.60.2.1.3=US",
+        "from": "exe",
+        "valid": true
+      },
+      "settings": [
+        {
+          "id": "settings",
+          "label": "Settings",
+          "files": [
+            {
+              "path": "{AppData}\\obs-studio\\user.ini",
+              "size": 1024
+            }
+          ]
+        },
+        {
+          "id": "profiles",
+          "label": "Profiles",
+          "files": [
+            {
+              "path": "{AppData}\\obs-studio\\basic\\profiles\\Stream\\basic.ini",
+              "size": 1024
+            }
+          ]
+        },
+        {
+          "id": "scenes",
+          "label": "Scenes",
+          "files": [
+            {
+              "path": "{AppData}\\obs-studio\\basic\\scenes\\Main.json",
+              "size": 1024
+            }
+          ]
+        }
+      ],
+      "links": {
+        "homepage": "https://obsproject.com/",
+        "publisher": "https://obsproject.com/",
+        "support": "https://obsproject.com/help",
+        "license": "https://github.com/obsproject/obs-studio/blob/master/COPYING",
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/o/OBSProject/OBSStudio"
+      },
+      "localId": "ARP\\Machine\\X86\\OBS Studio"
+    },
+    {
+      "name": "WhatsApp",
+      "publisher": "WhatsApp Inc.",
+      "version": "2.2540.6.0",
+      "status": "Ready",
+      "package": {
+        "id": "9NKSQGP7F2NH",
+        "source": "msstore"
+      },
+      "signer": {
+        "subject": "CN=24803D75-212C-471A-BC57-9EF86AB91435",
+        "from": "msix",
+        "valid": true
+      },
+      "links": {
+        "source": "https://apps.microsoft.com/detail/9NKSQGP7F2NH"
+      },
+      "localId": "MSIX\\5319275A.WhatsAppDesktop_2.2540.6.0_x64__cv1g1gvanyjgm"
+    },
+    {
+      "name": "Python 3.12.10 (64-bit)",
+      "publisher": "Python Software Foundation",
+      "version": "3.12.10",
+      "status": "Ready",
+      "package": {
+        "id": "Python.Python.3.12",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "Python Software Foundation",
+        "name": "Python Software Foundation",
+        "subject": "CN=Python Software Foundation, O=Python Software Foundation, L=Beaverton, S=Oregon, C=US",
+        "from": "exe",
+        "valid": true
+      },
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/p/Python/Python/3/12"
+      },
+      "localId": "ARP\\User\\X64\\{b6ce88eb-2ce3-4d91-8efc-425ae1f48caf}"
+    },
+    {
+      "name": "ShareX",
+      "publisher": "ShareX Team",
+      "version": "21.0.0",
+      "status": "Ready",
+      "package": {
+        "id": "ShareX.ShareX",
+        "source": "winget"
+      },
+      "settings": [
+        {
+          "id": "settings",
+          "label": "Settings",
+          "files": [
+            {
+              "path": "{Documents}\\ShareX\\ApplicationConfig.json",
+              "size": 1024
+            }
+          ]
+        },
+        {
+          "id": "hotkeys",
+          "label": "Hotkeys",
+          "files": [
+            {
+              "path": "{Documents}\\ShareX\\HotkeysConfig.json",
+              "size": 1024
+            }
+          ]
+        }
+      ],
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/s/ShareX/ShareX"
+      },
+      "localId": "ARP\\Machine\\X64\\82E6AC09-0FEF-4390-AD9F-0DD3F5561EFC_is1"
+    },
+    {
+      "name": "Signal 8.34.0",
+      "publisher": "Signal Messenger, LLC",
+      "version": "8.34.0",
+      "status": "Ready",
+      "package": {
+        "id": "OpenWhisperSystems.Signal",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "Signal Messenger, LLC",
+        "name": "Signal Messenger, LLC",
+        "subject": "CN=\"Signal Messenger, LLC\", O=\"Signal Messenger, LLC\", L=Mountain View, S=California, C=US, OID.1.3.6.1.4.1.311.60.2.1.2=Delaware, OID.1.3.6.1.4.1.311.60.2.1.3=US, SERIALNUMBER=6703101, OID.2.5.4.15=Private Organization",
+        "from": "exe",
+        "valid": true
+      },
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/o/OpenWhisperSystems/Signal"
+      },
+      "localId": "ARP\\User\\X64\\7d96caee-06e6-597c-9f2f-c7bb2e0948b4"
+    },
+    {
+      "name": "Spotify",
+      "publisher": "Spotify AB",
+      "version": "1.3.6.1921.g7086c071a617",
+      "status": "Ready",
+      "package": {
+        "id": "Spotify.Spotify",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "Spotify AB",
+        "name": "Spotify AB",
+        "subject": "CN=Spotify AB, O=Spotify AB, L=Stockholm, C=SE, SERIALNUMBER=556703-7485, OID.2.5.4.15=Private Organization, OID.1.3.6.1.4.1.311.60.2.1.3=SE",
+        "from": "exe",
+        "valid": true
+      },
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/s/Spotify/Spotify"
+      },
+      "localId": "ARP\\User\\X64\\Spotify"
+    },
+    {
+      "name": "Steam",
+      "publisher": "Valve Corporation",
+      "version": "2.10.91.91",
+      "status": "Ready",
+      "package": {
+        "id": "Valve.Steam",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "Valve Corp.",
+        "name": "Valve Corp.",
+        "subject": "CN=Valve Corp., O=Valve Corp., L=Bellevue, S=Washington, C=US",
+        "from": "exe",
+        "valid": true
+      },
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/v/Valve/Steam"
+      },
+      "localId": "ARP\\Machine\\X86\\Steam"
+    },
+    {
+      "name": "Tailscale",
+      "publisher": "Tailscale Inc.",
+      "version": "1.104.5",
+      "status": "Ready",
+      "package": {
+        "id": "Tailscale.Tailscale",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "Tailscale Inc.",
+        "name": "Tailscale Inc.",
+        "subject": "CN=Tailscale Inc., O=Tailscale Inc., L=Toronto, S=Ontario, C=CA, SERIALNUMBER=1131559-5, OID.2.5.4.15=Private Organization, OID.1.3.6.1.4.1.311.60.2.1.3=CA",
+        "from": "msi",
+        "valid": true
+      },
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/t/Tailscale/Tailscale"
+      },
+      "localId": "ARP\\Machine\\X64\\{E0FFD161-1530-5E85-A4B5-4CFD7F4FA86E}"
+    },
+    {
+      "name": "VeraCrypt",
+      "publisher": "IDRIX",
+      "version": "1.26.20",
+      "status": "Ready",
+      "package": {
+        "id": "IDRIX.VeraCrypt",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "IDRIX SARL",
+        "name": "IDRIX SARL",
+        "subject": "CN=IDRIX SARL, O=IDRIX SARL, STREET=5 AVENUE INGRES, L=Paris, S=Île-de-France, C=FR, OID.1.3.6.1.4.1.311.60.2.1.3=FR, SERIALNUMBER=490 000 619, OID.2.5.4.15=Private Organization",
+        "from": "exe",
+        "valid": true
+      },
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/i/IDRIX/VeraCrypt"
+      },
+      "localId": "ARP\\Machine\\X86\\VeraCrypt"
+    },
+    {
+      "name": "VLC media player",
+      "publisher": "VideoLAN",
+      "version": "3.0.24",
+      "status": "Ready",
+      "package": {
+        "id": "VideoLAN.VLC",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "VideoLAN",
+        "name": "VideoLAN",
+        "subject": "CN=VideoLAN, O=VideoLAN, L=Paris, C=FR",
+        "from": "exe",
+        "valid": true
+      },
+      "settings": [
+        {
+          "id": "settings",
+          "label": "Settings",
+          "files": [
+            {
+              "path": "{AppData}\\vlc\\vlcrc",
+              "size": 1024
+            }
+          ]
+        }
+      ],
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/v/VideoLAN/VLC"
+      },
+      "localId": "ARP\\Machine\\X64\\VLC media player"
+    },
+    {
+      "name": "Microsoft Visual C++ v14 Redistributable (x64)",
+      "publisher": "Microsoft Corporation",
+      "version": "14.51.36247",
+      "status": "Ready",
+      "package": {
+        "id": "Microsoft.VCRedist.2015+.x64",
+        "source": "winget"
+      },
+      "system": true,
+      "localId": "ARP\\Machine\\X64\\{vcredist}"
+    },
+    {
+      "name": "Brave",
+      "publisher": "Brave Software Inc",
+      "version": "157.1.99.55",
+      "status": "Guess",
+      "package": {
+        "id": "Brave.Brave",
+        "source": "winget"
+      },
+      "signer": {
+        "organization": "Brave Software, Inc.",
+        "name": "Brave Software, Inc.",
+        "subject": "CN=\"Brave Software, Inc.\", O=\"Brave Software, Inc.\", L=San Francisco, S=California, C=US",
+        "from": "exe",
+        "valid": true
+      },
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/b/Brave/Brave"
+      },
+      "localId": "ARP\\Machine\\X86\\BraveSoftware Brave-Browser"
+    },
+    {
+      "name": "Discord",
+      "publisher": "Discord Inc.",
+      "version": "1.0.9266",
+      "status": "Guess",
+      "package": {
+        "id": "Discord.Discord",
+        "source": "winget"
+      },
+      "links": {
+        "homepage": "https://discord.com/download",
+        "publisher": "https://discord.com/",
+        "support": "https://support.discord.com/",
+        "license": "https://discord.com/terms",
+        "privacy": "https://discord.com/privacy",
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/d/Discord/Discord"
+      },
+      "localId": "ARP\\User\\X64\\Discord",
+      "confirmed": true
+    },
+    {
+      "name": "Mullvad VPN 2025.14.0",
+      "publisher": "Mullvad VPN",
+      "version": "2025.14.0",
+      "status": "Guess",
+      "package": {
+        "id": "MullvadVPN.MullvadVPN",
+        "source": "winget"
+      },
+      "links": {
+        "source": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/m/MullvadVPN/MullvadVPN"
+      },
+      "localId": "ARP\\Machine\\X64\\2A356FD4-03B7-4F45-99B4-737BE580DC82"
+    },
+    {
+      "name": "AMD Software",
+      "publisher": "Advanced Micro Devices, Inc.",
+      "version": "26.10.1",
+      "status": "Manual",
+      "links": {
+        "homepage": "https://www.amd.com/en/support",
+        "support": "https://www.amd.com/en/support"
+      },
+      "system": true,
+      "localId": "ARP\\Machine\\X64\\AMD Catalyst Install Manager"
+    },
+    {
+      "name": "Razer Synapse",
+      "publisher": "Razer Inc.",
+      "version": "4.0.896",
+      "status": "Manual",
+      "links": {
+        "homepage": "https://www.razer.com/synapse-4"
+      },
+      "localId": "ARP\\Machine\\X86\\Razer Synapse"
+    },
+    {
+      "name": "Realtek Audio Driver",
+      "publisher": "Realtek Semiconductor Corp.",
+      "version": "6.0.9768.1",
+      "status": "Manual",
+      "system": true,
+      "localId": "ARP\\Machine\\X86\\{F132AF7F-7BCA-4EDE-8A7C-958108FE7DBC}"
+    },
+    {
+      "name": "VMware Workstation",
+      "publisher": "VMware, Inc.",
+      "version": "25.0.1",
+      "status": "Manual",
+      "signer": {
+        "organization": "Broadcom Inc",
+        "name": "Broadcom Inc",
+        "subject": "CN=Broadcom Inc, O=Broadcom Inc, L=San Jose, S=California, C=US, SERIALNUMBER=6610117, OID.2.5.4.15=Private Organization, OID.1.3.6.1.4.1.311.60.2.1.2=Delaware, OID.1.3.6.1.4.1.311.60.2.1.3=US",
+        "from": "msi",
+        "valid": true
+      },
+      "localId": "ARP\\Machine\\X64\\{572A0073-40AE-4866-8138-AE60C3D90EF3}"
+    },
+    {
+      "name": "RustDesk",
+      "publisher": "Purslane Tech Pte. Ltd.",
+      "version": "1.5.1",
+      "status": "Manual",
+      "links": {
+        "support": "https://github.com/rustdesk/rustdesk/issues/"
+      },
+      "localId": "ARP\\Machine\\X64\\{6F0E22B3-63FC-4F2F-9B91-F5DFC22A5B51}"
+    },
+    {
+      "name": "Soundpad",
+      "publisher": "Leppsoft",
+      "version": "Unknown",
+      "status": "Launcher",
+      "parent": "Steam",
+      "localId": "ARP\\Machine\\X64\\Steam App 629520"
+    },
+    {
+      "name": "Wallpaper Engine",
+      "publisher": "Wallpaper Engine Team",
+      "version": "Unknown",
+      "status": "Launcher",
+      "parent": "Steam",
+      "localId": "ARP\\Machine\\X64\\Steam App 431960"
+    }
+  ]
+}

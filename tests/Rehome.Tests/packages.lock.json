@@ -98,7 +98,7 @@
           "xunit.extensibility.core": "[2.9.3]"
         }
       },
-      "rehome": {
+      "rehome.core": {
         "type": "Project",
         "dependencies": {
           "Microsoft.WindowsPackageManager.ComInterop": "[1.29.380, )"

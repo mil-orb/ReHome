@@ -2,42 +2,17 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
-    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <InvariantGlobalization>true</InvariantGlobalization>
     <AssemblyName>rehome</AssemblyName>
     <RootNamespace>Rehome</RootNamespace>
-    <Version>0.1.0</Version>
-    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsPackageManager.ComInterop" Version="1.29.380" />
+    <PackageReference Include="Microsoft.WindowsPackageManager.ComInterop" Version="$(WingetInteropVersion)" />
+    <ProjectReference Include="..\Rehome.Core\Rehome.Core.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <InternalsVisibleTo Include="Rehome.Tests" />
-  </ItemGroup>
-
-  <!--
-    winget's interop files have to sit next to the exe. Inside the single-file bundle,
-    WinRT can't find the activation factory and falls back to packaged activation,
-    which fails with 0x80073D54 (no package identity).
-  -->
-  <Target Name="KeepWingetInteropBesideExe" AfterTargets="ComputeResolvedFilesToPublishList">
-    <ItemGroup>
-      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)" Condition="$([System.String]::Copy('%(Filename)').StartsWith('Microsoft.Management.Deployment'))">
-        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-      </ResolvedFileToPublish>
-    </ItemGroup>
-  </Target>
 
 </Project>

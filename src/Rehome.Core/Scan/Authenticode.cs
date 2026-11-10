@@ -12,7 +12,7 @@ namespace Rehome.Scan;
 /// </summary>
 internal static unsafe partial class Authenticode
 {
-    public static Signer? Read(string? path)
+    public static Signer? Read(string? path, string from)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
             return null;
@@ -36,7 +36,7 @@ internal static unsafe partial class Authenticode
             try
             {
                 var subject = SignerSubject(data.hWVTStateData);
-                return subject is null ? null : new Signer(subject, result == 0);
+                return subject is null ? null : Signer.Parse(subject, from, result == 0);
             }
             finally
             {

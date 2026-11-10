@@ -1,0 +1,82 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>Rehome</AssemblyName>
+    <RootNamespace>Rehome.Shell</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- Portable: one exe that runs on a fresh Windows with no .NET installed. Compression roughly halves it. -->
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <!--
+      Managed code loads from inside the exe, never from disk. Only native DLLs (WebView2Loader, winget's COM factory)
+      are unpacked to %TEMP%\.net, which the user can write to. The elevated install helper is this same exe, and it
+      loads neither of them: it only starts winget.exe. Don't turn on IncludeAllContentForSelfExtract, which would
+      make the elevated copy load every assembly from that folder.
+    -->
+    <DebugType>embedded</DebugType>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
+    <!-- The WebView2 package ships a WPF assembly we don't load. Its WindowsBase version mismatch is harmless here. -->
+    <MSBuildWarningsAsMessages>MSB3277</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+    <PackageReference Include="Microsoft.WindowsPackageManager.ComInterop" Version="$(WingetInteropVersion)" />
+    <ProjectReference Include="..\Rehome.Core\Rehome.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    The web UI is built by Vite and compiled into the exe as resources.
+    The app serves it from memory, so nothing on disk can swap it out.
+  -->
+  <PropertyGroup>
+    <UiDir>$(MSBuildProjectDirectory)\ui</UiDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <UiSource Include="ui\src\**\*;ui\index.html;ui\package-lock.json;ui\vite.config.ts;ui\tsconfig.json" />
+  </ItemGroup>
+
+  <Target Name="InstallUi" BeforeTargets="BuildUi" Condition="!Exists('$(UiDir)\node_modules')">
+    <Exec Command="npm ci --no-fund --no-audit" WorkingDirectory="$(UiDir)" />
+  </Target>
+
+  <Target Name="BuildUi" BeforeTargets="BeforeBuild" Inputs="@(UiSource)" Outputs="$(UiDir)\dist\index.html">
+    <Exec Command="npm run build" WorkingDirectory="$(UiDir)" />
+  </Target>
+
+  <Target Name="EmbedUi" AfterTargets="BuildUi" BeforeTargets="BeforeBuild">
+    <ItemGroup>
+      <_UiFile Include="ui\dist\**\*" />
+      <EmbeddedResource Include="@(_UiFile)" LogicalName="ui/$([System.String]::Copy('%(_UiFile.RecursiveDir)').Replace('\', '/'))%(_UiFile.Filename)%(_UiFile.Extension)" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    winget's COM projection arrives as copy-local files outside the bundle. Pull the DLLs in; the native factory is
+    unpacked with the other native libraries at first run.
+    Microsoft.Management.Deployment.winmd has to sit beside the running exe: WinRT reads it to marshal calls to
+    winget's out-of-process server, and for an unpackaged app Windows only looks in the exe's own folder. It's
+    embedded instead of published, and Portable.cs puts it beside a private copy of the exe at first run, so the
+    published app is one file.
+  -->
+  <Target Name="EmbedWingetMetadata" AfterTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <EmbeddedResource Include="@(ReferenceCopyLocalPaths)" Condition="'%(Extension)' == '.winmd'" LogicalName="%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="BundleWingetInterop" BeforeTargets="_ComputeFilesToBundle">
+    <ItemGroup>
+      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)" Condition="$([System.String]::Copy('%(Filename)').StartsWith('Microsoft.Management.Deployment')) And '%(Extension)' != '.winmd'" ExcludeFromSingleFile="false" />
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.winmd'" />
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
+
+</Project>

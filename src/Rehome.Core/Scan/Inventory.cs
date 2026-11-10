@@ -17,6 +17,9 @@ internal sealed class Inventory : ICatalog
 
     public string WingetVersion { get; }
 
+
+    public WinGet.PackageManager PackageManager => _pm;
+
     Inventory(WinGet.PackageCatalog winget, WinGet.PackageCatalog? store, string version)
     {
         _winget = winget;
@@ -99,12 +102,13 @@ internal sealed class Inventory : ICatalog
             Location = NullIfEmpty(location),
             ProductCodes = Items(local.ProductCodes),
             FamilyNames = familyNames,
+            ShipsWithWindows = familyNames.Any(WindowsApps.ShipsWithWindows),
             Correlated = remote is null ? null : new CatalogRef(package.Id, remote.PackageCatalog.Info.Name),
             Msix = facts,
             // Windows refuses to install an MSIX whose signature doesn't verify, so the package publisher is the signer.
             Signer = facts is null
-                ? Authenticode.Read(SignedFile(localId, location, local.ProductCodes.Count > 0 ? local.ProductCodes[0] : null))
-                : new Signer(facts.Publisher, Valid: true),
+                ? ReadSigner(localId, local.DisplayName, location, local.ProductCodes.Count > 0 ? local.ProductCodes[0] : null)
+                : Signer.Parse(facts.Publisher, "msix", valid: true),
         };
     }
 
@@ -135,15 +139,23 @@ internal sealed class Inventory : ICatalog
     }
 
     /// <summary>
-    /// The file whose signature speaks for the app, in order of how directly it came from the vendor:
-    /// the MSI Windows cached at install time, the exe the uninstall entry's icon points at,
-    /// then the only exe in the install folder.
+    /// The signature that speaks for the app, in order of how directly it came from the vendor:
+    /// the MSI Windows cached at install time, then the app's main exe.
     /// </summary>
-    internal static string? SignedFile(string localId, string? location, string? productCode)
+    static Signer? ReadSigner(string localId, string name, string? location, string? productCode)
     {
-        if (Msi.CachedPackage(productCode) is { } msi)
-            return msi;
+        if (Msi.CachedPackage(productCode) is { } msi && Authenticode.Read(msi, "msi") is { } fromMsi)
+            return fromMsi;
 
+        return Authenticode.Read(MainExecutable(localId, location, name), "exe");
+    }
+
+    /// <summary>
+    /// The exe the uninstall entry's icon points at, else the only exe in the install folder,
+    /// else the one named after the app (blender.exe beside blender-launcher.exe). Never a guess between two.
+    /// </summary>
+    internal static string? MainExecutable(string localId, string? location, string? name)
+    {
         var icon = ReadArpValue(localId, "DisplayIcon");
         var path = ParseIconPath(icon);
         if (path is not null && path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && File.Exists(path))
@@ -154,10 +166,17 @@ internal sealed class Inventory : ICatalog
 
         var exes = Directory.EnumerateFiles(location, "*.exe")
             .Where(f => !Path.GetFileName(f).StartsWith("unins", StringComparison.OrdinalIgnoreCase))
-            .Take(2)
+            .Take(64)
             .ToList();
-        return exes.Count == 1 ? exes[0] : null;
+        if (exes.Count == 1)
+            return exes[0];
+
+        var key = Squash(Resolver.NormalizeName(name));
+        var named = exes.Where(f => key.Length > 0 && Squash(Path.GetFileNameWithoutExtension(f)) == key).ToList();
+        return named.Count == 1 ? named[0] : null;
     }
+
+    static string Squash(string s) => string.Concat(s.Where(char.IsLetterOrDigit)).ToLowerInvariant();
 
     internal static string? ParseIconPath(string? icon)
     {
@@ -179,7 +198,7 @@ internal sealed class Inventory : ICatalog
     }
 
     /// <summary>Local ids look like ARP\Machine\X64\{key}. Maps that back to the registry entry it came from.</summary>
-    static string? ReadArpValue(string localId, string value)
+    internal static string? ReadArpValue(string localId, string value)
     {
         var parts = localId.Split('\\', 4);
         if (parts.Length != 4 || parts[0] != "ARP")
@@ -228,10 +247,102 @@ internal sealed class Inventory : ICatalog
         return [.. Items(result.Matches).Select(m =>
         {
             var p = m.CatalogPackage;
-            var publisher = source == "winget" && Resolver.NormalizeName(p.Name) == wanted ? p.DefaultInstallVersion?.Publisher : null;
-            return new CatalogEntry(p.Id, p.Name, publisher, source);
+            if (Resolver.NormalizeName(p.Name) != wanted)
+                return new CatalogEntry(p.Id, p.Name, null, source);
+
+            var version = p.DefaultInstallVersion;
+            return source == "winget"
+                ? new CatalogEntry(p.Id, p.Name, version?.Publisher, source)
+                : new CatalogEntry(p.Id, p.Name, null, source, version is null ? null : Items(version.PackageFamilyNames));
         })];
     }
+    public CatalogEntry? StoreListing(string familyName)
+    {
+        if (_store is null || string.IsNullOrWhiteSpace(familyName))
+            return null;
+
+        var options = new WinGet.FindPackagesOptions { ResultLimit = 2 };
+        options.Filters.Add(new WinGet.PackageMatchFilter
+        {
+            Field = WinGet.PackageMatchField.PackageFamilyName,
+            Option = WinGet.PackageFieldMatchOption.EqualsCaseInsensitive,
+            Value = familyName,
+        });
+
+        try
+        {
+            var result = Timing.Time($"store family {familyName}", () => _store.FindPackages(options));
+            if (result.Status != WinGet.FindPackagesResultStatus.Ok || result.Matches.Count != 1)
+                return null;
+            var p = result.Matches[0].CatalogPackage;
+            return new CatalogEntry(p.Id, p.Name, null, "msstore", [familyName]);
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            return null; // The Store source can refuse a field it doesn't index. Then names decide, as before.
+        }
+    }
+
+    /// <summary>One package by exact id in one of the two official catalogs, or null if it isn't there exactly once.</summary>
+    public WinGet.CatalogPackage? Find(CatalogRef package)
+    {
+        var catalog = package.Source switch { "winget" => _winget, "msstore" => _store, _ => null };
+        if (catalog is null)
+            return null;
+
+        var options = new WinGet.FindPackagesOptions { ResultLimit = 2 };
+        options.Filters.Add(new WinGet.PackageMatchFilter
+        {
+            Field = WinGet.PackageMatchField.Id,
+            Option = WinGet.PackageFieldMatchOption.Equals,
+            Value = package.Id,
+        });
+
+        var result = catalog.FindPackages(options);
+        if (result.Status != WinGet.FindPackagesResultStatus.Ok || result.Matches.Count != 1)
+            return null;
+
+        var found = result.Matches[0].CatalogPackage;
+        return string.Equals(found.Id, package.Id, StringComparison.OrdinalIgnoreCase) ? found : null;
+    }
+
+    /// <summary>The vendor's pages from the package manifest, plus the package's own catalog page.</summary>
+    public Links? LinksFor(CatalogRef package)
+    {
+        var page = Links.CatalogPage(package);
+        WinGet.CatalogPackageMetadata? meta = null;
+        try
+        {
+            meta = Find(package)?.DefaultInstallVersion?.GetCatalogPackageMetadata();
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            // The Store answers over the network. No answer means fewer links, not a failed scan.
+        }
+
+        var links = new Links
+        {
+            Homepage = Links.Https(meta?.PackageUrl),
+            Publisher = Links.Https(meta?.PublisherUrl),
+            Support = Links.Https(meta?.PublisherSupportUrl),
+            License = Links.Https(meta?.LicenseUrl),
+            Privacy = Links.Https(meta?.PrivacyUrl),
+            Source = page,
+        };
+        return links.IsEmpty ? null : links;
+    }
+
+    /// <summary>For apps with no package: the vendor's own pointers from the uninstall entry.</summary>
+    public static Links? LinksFromUninstallEntry(string localId)
+    {
+        var links = new Links
+        {
+            Homepage = Links.Https(ReadArpValue(localId, "URLInfoAbout")),
+            Support = Links.Https(ReadArpValue(localId, "HelpLink")),
+        };
+        return links.IsEmpty ? null : links;
+    }
+
     static string? NullIfEmpty(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
 
     /// <summary>

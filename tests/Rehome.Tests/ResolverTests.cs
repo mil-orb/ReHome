@@ -133,6 +133,41 @@ public class ResolverTests
     }
 
     [Fact]
+    public void Store_hit_with_the_same_package_family_is_ready()
+    {
+        var family = "Microsoft.WindowsCalculator_8wekyb3d8bbwe";
+        var catalog = new StubCatalog(new CatalogEntry("9WZDNCRFHVN5", "Windows Calculator", null, "msstore", [family]));
+
+        var app = Single(Msix("Windows Calculator", family, "Store", publisher: "Microsoft Corporation"), catalog);
+
+        Assert.Equal(Status.Ready, app.Status);
+    }
+
+    [Fact]
+    public void Store_hit_with_a_different_package_family_stays_a_guess()
+    {
+        var catalog = new StubCatalog(new CatalogEntry("9XXXXXXXXXXX", "Windows Calculator", null, "msstore", ["Someone.Calculator_abc123"]));
+
+        var app = Single(Msix("Windows Calculator", "Microsoft.WindowsCalculator_8wekyb3d8bbwe", "Store", publisher: "Microsoft Corporation"), catalog);
+
+        Assert.Equal(Status.Guess, app.Status);
+    }
+
+    [Fact]
+    public void Store_listing_with_another_name_but_the_same_family_is_ready()
+    {
+        // StubCatalog matches on substring, the real Store on relevance. Either way the family decides.
+        var family = "Microsoft.Todos_8wekyb3d8bbwe";
+        var catalog = new StubCatalog(new CatalogEntry("9NBLGGH5R558", "Microsoft To Do: Lists, Tasks & Reminders", null, "msstore", [family]));
+
+        var app = Single(Msix("Microsoft To Do", family, "Store", publisher: "Microsoft Corporation"), catalog);
+
+        Assert.Equal(Status.Ready, app.Status);
+        Assert.Equal("9NBLGGH5R558", app.Package?.Id);
+        Assert.Null(app.System);
+    }
+
+    [Fact]
     public void Steam_games_belong_to_steam()
     {
         var app = Single(Desktop("Wallpaper Engine", "Wallpaper Engine Team", key: "Steam App 431960"));
@@ -175,4 +210,102 @@ public class ResolverTests
     [InlineData(null, "")]
     public void Publishers_normalize(string? raw, string expected) =>
         Assert.Equal(expected, Resolver.NormalizePublisher(raw));
+}
+
+/// <summary>The real Manual list from the first full scan of the dev PC, sorted by hand.</summary>
+public class CategoryTests
+{
+    static App Resolve(string name, string? publisher, bool msix = false, CatalogRef? correlated = null) =>
+        Assert.Single(Resolver.Resolve([msix
+            ? new Installed
+            {
+                LocalId = $@"MSIX\{name.Replace(' ', '.')}_1.0.0.0_x64__8wekyb3d8bbwe",
+                Name = name,
+                Publisher = publisher,
+                FamilyNames = [$"{name.Replace(' ', '.')}_8wekyb3d8bbwe"],
+                Msix = new MsixFacts("Store", false, true, "CN=Microsoft Corporation", publisher ?? ""),
+            }
+            : new Installed { LocalId = $@"ARP\Machine\X64\{name}", Name = name, Publisher = publisher, Correlated = correlated }], new NoCatalog()));
+
+    sealed class NoCatalog : ICatalog
+    {
+        public IReadOnlyList<CatalogEntry> Search(string name, string source) => [];
+    }
+
+    [Theory]
+    [InlineData("AMD Chipset Software", "Advanced Micro Devices, Inc.")]
+    [InlineData("AMD Install Manager", "Advanced Micro Devices, Inc.")]
+    [InlineData("AMD Ryzen Master SDK", "Advanced Micro Devices, Inc.")]
+    [InlineData("AMD Software", "Advanced Micro Devices, Inc.")]
+    [InlineData("Corsair iCUE 5 VHID Drivers v3.0.88.9", "Corsair Memory")]
+    [InlineData("Corsair USBXp Drivers v3.3.0.15 for iCUE 5", "Corsair Memory")]
+    [InlineData("Elytra Anti-Cheat Framework", "Elytra")]
+    [InlineData("EPSON XP-4200 Series Printer Uninstall", "Seiko Epson Corporation")]
+    [InlineData("Intel(R) Network Connections 26.2.0.1", "Intel")]
+    [InlineData("Intel(R) Wireless Bluetooth(R)", "Intel Corporation")]
+    [InlineData("Microsoft Teams Meeting Add-in for Microsoft Office", "Microsoft")]
+    [InlineData("Microsoft Visual C++ 2005 Redistributable (x64)", "Microsoft Corporation")]
+    [InlineData("Microsoft Visual Studio Installer", "Microsoft Corporation")]
+    [InlineData("Realtek Audio Driver", "Realtek Semiconductor Corp.")]
+    [InlineData("vs_CoreEditorFonts", "Microsoft Corporation")]
+    [InlineData("Windows SDK AddOn", "Microsoft Corporation")]
+    [InlineData("Xbox Service", "Microsoft Corporation")]
+    public void Drivers_and_runtimes_are_system(string name, string? publisher) =>
+        Assert.True(Resolve(name, publisher).System);
+
+    [Theory]
+    [InlineData("Game Bar")]
+    [InlineData("Get Help")]
+    [InlineData("Windows Security")]
+    [InlineData("Phone Link")]
+    // Provisioned ones (Game Bar, Get Help) never get here: Inventory flags them and the resolver drops them.
+    // This is the fallback for a Microsoft package Windows didn't provision and no catalog knows.
+    public void Unprovisioned_Microsoft_packages_no_catalog_knows_are_system(string name) =>
+        Assert.True(Resolve(name, "Microsoft Corporation", msix: true).System);
+
+    [Theory]
+    [InlineData("RustDesk", "Purslane Tech Pte. Ltd.")]
+    [InlineData("VMware Workstation", "VMware, Inc.")]
+    [InlineData("Razer Cortex", "Razer Inc.")]
+    [InlineData("Razer Chroma", "Razer Inc.")]
+    [InlineData("Razer Synapse", "Razer Inc.")]
+    [InlineData("Mister Download Manager", "Ahmed Nefzaoui")]
+    [InlineData("Electric Sheep 3.0.2", "Electricsheep")]
+    [InlineData("FreeToken Desktop", "freetoken")]
+    [InlineData("Bun", null)]
+    public void Apps_without_a_catalog_entry_stay_apps(string name, string? publisher)
+    {
+        var app = Resolve(name, publisher);
+        Assert.Equal(Status.Manual, app.Status);
+        Assert.Null(app.System);
+    }
+
+    [Fact]
+    public void Catalog_runtime_is_installable_but_system() // shows unchecked in its own group
+    {
+        var app = Resolve("Microsoft .NET Runtime - 8.0.11 (x64)", "Microsoft Corporation", correlated: new CatalogRef("Microsoft.DotNet.Runtime.8", "winget"));
+        Assert.Equal(Status.Ready, app.Status);
+        Assert.True(app.System);
+    }
+
+    [Fact]
+    public void Microsoft_app_in_a_catalog_is_an_app() =>
+        Assert.Null(Resolve("Microsoft Visual Studio Code", "Microsoft Corporation", correlated: new CatalogRef("Microsoft.VisualStudioCode", "winget")).System);
+}
+
+public class CategoryEdgeTests
+{
+    sealed class NoCatalog : ICatalog
+    {
+        public IReadOnlyList<CatalogEntry> Search(string name, string source) => [];
+    }
+
+    [Theory]
+    [InlineData("Rustup: the Rust toolchain installer", "Rustlang", "Rustlang.Rustup")]
+    [InlineData("Microsoft .NET SDK 10.0.300 (x64)", "Microsoft Corporation", "Microsoft.DotNet.SDK.10")]
+    public void Tools_in_a_catalog_stay_apps_even_with_part_words(string name, string publisher, string id)
+    {
+        var item = new Installed { LocalId = $@"ARP\Machine\X64\{name}", Name = name, Publisher = publisher, Correlated = new CatalogRef(id, "winget") };
+        Assert.Null(Assert.Single(Resolver.Resolve([item], new NoCatalog())).System);
+    }
 }

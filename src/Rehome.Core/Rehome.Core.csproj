@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Rehome</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Its build targets don't flow to referencing projects, so each exe references it too. -->
+    <PackageReference Include="Microsoft.WindowsPackageManager.ComInterop" Version="$(WingetInteropVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="rehome" />
+    <InternalsVisibleTo Include="Rehome" />
+    <InternalsVisibleTo Include="Rehome.Tests" />
+  </ItemGroup>
+
+</Project>
