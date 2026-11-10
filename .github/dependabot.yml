@@ -13,6 +13,14 @@ updates:
       actions:
         patterns: ["*"]
 
+  # The SDK is pinned exactly in global.json so CI and local builds resolve the same packages.
+  - package-ecosystem: dotnet-sdk
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+
   - package-ecosystem: nuget
     directory: /
     schedule:

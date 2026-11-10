@@ -2,7 +2,7 @@
 
 ## Setup
 
-Windows 10 2004 (build 19041) or newer, the .NET 10 SDK (`global.json` pins the feature band), Node 22+, and App Installer (winget) 1.29+.
+Windows 10 2004 (build 19041) or newer, the .NET 10 SDK 10.0.300 exactly (`global.json` pins it so lock files match CI), Node 22+, and App Installer (winget) 1.29+.
 
 ```
 git clone https://github.com/mil-orb/Rehome
