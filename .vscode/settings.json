@@ -1,0 +1,16 @@
+{
+  "dotnet.defaultSolution": "Rehome.slnx",
+  "files.eol": "\n",
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/packages.lock.json": true,
+    "**/package-lock.json": true,
+    "src/Rehome.App/ui/dev/fixture.json": true
+  },
+  "typescript.tsdk": "src/Rehome.App/ui/node_modules/typescript/lib"
+}

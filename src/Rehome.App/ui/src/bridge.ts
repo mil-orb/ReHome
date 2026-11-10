@@ -102,7 +102,7 @@ async function dev(method: Method, params: unknown): Promise<unknown> {
       return fixture();
     case "export":
       await sleep(600);
-      return { exported: true, file: "E:\\Rehome 7-Zip Brave Discord +16 more Installer.exe" };
+      return { exported: true, file: "E:\\Rehome 7-Zip Blender Docker Desktop Git +13 more Installer.exe" };
     case "showExport":
       console.info("show exported file");
       return {};

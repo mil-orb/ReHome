@@ -7,7 +7,8 @@ using Rehome.Scan;
 namespace Rehome.Shell;
 
 /// <summary>
-/// Each app's own icon as a small PNG data URI, for display only. Never written to a scan file.
+/// Each app's own icon as a small PNG data URI, for display only. Exports carry them so the new PC can show them;
+/// opening a scan accepts only base64 PNG data URIs under 280,000 characters (see Plan.Clean).
 /// Read from the app's own installed files, so it's the vendor's icon: the MSIX package logo, the uninstall
 /// entry's icon, or the icon inside the app's main exe. Nothing is fetched from the network.
 /// </summary>

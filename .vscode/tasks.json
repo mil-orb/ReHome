@@ -1,0 +1,50 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["build", "Rehome.slnx"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "test",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["test", "Rehome.slnx"],
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "ui: dev server",
+      "type": "npm",
+      "script": "dev",
+      "path": "src/Rehome.App/ui",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "ui: typecheck",
+      "type": "npm",
+      "script": "typecheck",
+      "path": "src/Rehome.App/ui",
+      "problemMatcher": "$tsc"
+    },
+    {
+      "label": "ui: screenshots",
+      "type": "npm",
+      "script": "screenshots",
+      "path": "src/Rehome.App/ui",
+      "problemMatcher": []
+    },
+    {
+      "label": "publish portable exe",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["publish", "src/Rehome.App", "-c", "Release", "-o", "out"],
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

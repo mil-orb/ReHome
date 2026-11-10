@@ -19,7 +19,7 @@ Anything that gets Rehome to:
 - copy a settings file that holds a secret, or write one outside the paths in `SettingsCatalog`
 - run code from a scan file (paths, ids, links or icons in it)
 
-Known and documented, so not a vulnerability on its own:
+Known and documented in [docs/security-model.md](docs/security-model.md#known-gaps), so not a vulnerability on its own:
 
 - The scan seal is a plain SHA-256 with no key. Someone who can edit the exe can recompute it. See "Sealed scans" in the README.
 - Rehome isn't code-signed yet, so SmartScreen warns on a downloaded copy.

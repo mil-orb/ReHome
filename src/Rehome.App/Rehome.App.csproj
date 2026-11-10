@@ -43,7 +43,8 @@
   </ItemGroup>
 
   <Target Name="InstallUi" BeforeTargets="BuildUi" Condition="!Exists('$(UiDir)\node_modules')">
-    <Exec Command="npm ci --no-fund --no-audit" WorkingDirectory="$(UiDir)" />
+    <!-- Lock-file versions only, and no package install scripts. Same command as CI. -->
+    <Exec Command="npm ci --ignore-scripts --no-fund --no-audit" WorkingDirectory="$(UiDir)" />
   </Target>
 
   <Target Name="BuildUi" BeforeTargets="BeforeBuild" Inputs="@(UiSource)" Outputs="$(UiDir)\dist\index.html">

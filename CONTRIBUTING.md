@@ -1,35 +1,66 @@
 # Contributing
 
+Thanks for looking. Rehome installs software as administrator on someone's new PC, so the bar for changes is "safe first, then simple, then fast". Bug fixes and better messages are the most useful contributions right now.
+
 ## Setup
 
-Windows 10 2004 (build 19041) or newer, the .NET 10 SDK 10.0.300 exactly (`global.json` pins it so lock files match CI), Node 22+, and App Installer (winget) 1.29+.
+See [BUILD.md](BUILD.md). The short version, with the .NET SDK 10.0.300 and Node 22+:
 
-```
+```powershell
 git clone https://github.com/mil-orb/Rehome
 cd Rehome
-dotnet test Rehome.slnx      # first build runs npm ci for the UI
+dotnet test Rehome.slnx                  # first build also runs npm ci for the UI
 dotnet run --project src/Rehome.App
 ```
 
-For UI-only work, `npm run dev` in `src/Rehome.App/ui` serves the UI at http://localhost:5199 with a fixture scan and a fake install run. No winget calls, nothing installed.
+For UI work, `npm run dev` in `src/Rehome.App/ui` runs the whole UI in a browser with fixture data and a simulated install. Nothing calls winget.
 
-## Testing without breaking your PC
+Then read [docs/architecture.md](docs/architecture.md) for the file map and [docs/security-model.md](docs/security-model.md) for what the checks are.
 
-Scans are read-only and safe to run anywhere. `rehome install` and the app's Install button really install software. Test those in a VM or Windows Sandbox, never on your daily machine. The unit tests never call winget or touch the registry.
+## Don't break your PC
 
-## Rules for changes
+Scanning and exporting are read-only and safe anywhere. `rehome install`, `rehome verify` and the app's Install button download and run real installers. Test those in Windows Sandbox or a VM ([how](BUILD.md#testing-installs)). The unit tests never call winget or touch the registry.
 
-- **Official sources only.** Rehome installs from winget's community repository and the Microsoft Store. A change that adds any other download path won't be merged.
-- **Dependencies.** Avoid new NuGet or npm packages. If one is truly needed, pin an exact version that's been out at least two weeks, commit the updated lock file, and say why in the PR. Dependabot follows the same two-week wait.
-- **Scan files are untrusted.** Anything read from a scan goes through `Plan.Parse`, and reaches winget as separate arguments, never through a shell.
-- **Warnings are errors.** `TreatWarningsAsErrors` is on for every project.
-- **Messages.** Error text tells the person what to do next, in plain words. No codes, no stack traces in the window.
-- **README.** If behavior or a user-facing message changes, update the README in the same PR.
+## Reporting bugs
+
+Use the [bug report template](https://github.com/mil-orb/Rehome/issues/new/choose). The most useful things to include are the exact message Rehome showed, which side it happened on (old PC or new), and the relevant lines from `%LOCALAPPDATA%\Rehome\rehome.log`.
+
+Security problems go through [SECURITY.md](SECURITY.md), not public issues.
+
+## Suggesting features
+
+Open a [feature request](https://github.com/mil-orb/Rehome/issues/new?template=feature_request.md) and describe the situation you were in, not only the feature. Some things are out of scope on purpose:
+
+- Installing from anywhere other than winget-pkgs and the Microsoft Store, including direct vendor downloads.
+- Copying whole app folders, scripts or anything that runs code on the new PC.
+- Running without the per-installer checks, even as an option.
+
+## Making changes
+
+1. One change per pull request. A bug fix and a refactor are two PRs.
+2. Write or update a test for anything in `Rehome.Core`. Pure parts (`Resolver`, `Categories`, `Selection`, `ScanSeal`, `ExportName`) are easy to test, so they should be.
+3. Run `dotnet test Rehome.slnx`, and `npm run typecheck` if you touched the UI.
+4. If the change is visible, check the window at 600×520 and 760×820 in light and dark, and run `npm run screenshots` if a README image changed.
+5. Update README or `docs/` in the same PR when behavior or a message changes.
+
+### Rules
+
+- **Official sources only.** No new download paths.
+- **Scan files are untrusted.** Everything from a scan goes through `Plan.Parse` and reaches processes as separate arguments.
+- **Dependencies.** Avoid new NuGet or npm packages. If one is truly needed: exact version, out for at least two weeks, lock file updated in the same PR, and a sentence on why. Dependabot follows the same two-week wait.
+- **Warnings are errors** in every project. Fix the cause.
+- **Messages** tell the person what to do next, in plain words. No codes or stack traces in the window.
+
+### AI assistance
+
+AI-assisted contributions are welcome. Say so in the PR: which tool, and roughly how much it did ("wrote the test cases", "most of the code"). Coding assistants should read [AGENTS.md](AGENTS.md) first; it has the commands that are unsafe to run and the recipes for common changes.
+
+The PR description's "Why" should be yours. An assistant can draft the rest.
 
 ## Pull requests
 
-Keep a PR to one change. CI runs the typecheck, the tests and a publish on `windows-2025`; the built `Rehome.exe` is attached to the run for 14 days so reviewers can try it in a VM.
+CI runs the UI typecheck, a locked restore, all tests and a publish on `windows-2025`. The built `Rehome.exe` is attached to the run for 14 days so a reviewer can try it in a VM.
 
 ## Releases
 
-Bump `<Version>` in `Directory.Build.props`, merge, then run the **release** workflow from the Actions tab. It builds, tests, and leaves a draft release with `Rehome.exe` and `SHA256SUMS.txt`. Check the draft, then publish it.
+Maintainers bump `<Version>` in `Directory.Build.props`, merge, then run the **release** workflow. It leaves a draft release with `Rehome.exe` and `SHA256SUMS.txt` to check before publishing.
