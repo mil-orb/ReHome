@@ -15,4 +15,15 @@
     <ProjectReference Include="..\Rehome.Core\Rehome.Core.csproj" />
   </ItemGroup>
 
+  <!--
+    winget's interop files have to sit next to the exe. Inside a single-file bundle, WinRT can't find the activation
+    factory and falls back to packaged activation, which fails with 0x80073D54 (no package identity). The desktop
+    app solves this by relocating itself (Portable.cs); the CLI ships them beside rehome.exe instead.
+  -->
+  <Target Name="KeepWingetInteropBesideExe" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)" Condition="$([System.String]::Copy('%(Filename)').StartsWith('Microsoft.Management.Deployment'))" ExcludeFromSingleFile="true" />
+    </ItemGroup>
+  </Target>
+
 </Project>

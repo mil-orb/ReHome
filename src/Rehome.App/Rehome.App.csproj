@@ -59,8 +59,8 @@
   </Target>
 
   <!--
-    winget's COM projection arrives as copy-local files outside the bundle. Pull the DLLs in; the native factory is
-    unpacked with the other native libraries at first run.
+    winget's COM projection DLLs go in the bundle like any other assembly; the native factory is unpacked with the
+    other native libraries at first run.
     Microsoft.Management.Deployment.winmd has to sit beside the running exe: WinRT reads it to marshal calls to
     winget's out-of-process server, and for an unpackaged app Windows only looks in the exe's own folder. It's
     embedded instead of published, and Portable.cs puts it beside a private copy of the exe at first run, so the
@@ -74,7 +74,6 @@
 
   <Target Name="BundleWingetInterop" BeforeTargets="_ComputeFilesToBundle">
     <ItemGroup>
-      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)" Condition="$([System.String]::Copy('%(Filename)').StartsWith('Microsoft.Management.Deployment')) And '%(Extension)' != '.winmd'" ExcludeFromSingleFile="false" />
       <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.winmd'" />
       <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
     </ItemGroup>
