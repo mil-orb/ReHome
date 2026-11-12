@@ -69,4 +69,38 @@ public class ScanInExeTests
         BitConverter.GetBytes(long.MaxValue).CopyTo(exe, exe.Length - 16);
         Assert.Throws<RehomeException>(() => ScanInExe.Read(new MemoryStream(exe)));
     }
+
+    // Opening a dropped or picked file: the exported exe and a scan .json both open; nothing else does.
+    [Theory]
+    [InlineData("ReHome Git Installer.exe")]
+    [InlineData("scan.JSON")]
+    public void Open_reads_an_exported_exe_or_a_scan_file(string name)
+    {
+        var dir = Directory.CreateTempSubdirectory("rehome-open-");
+        try
+        {
+            var file = Path.Combine(dir.FullName, name);
+            var scan = ScanSeal.Seal(Scan());
+            File.WriteAllBytes(file, name.EndsWith(".exe") ? Export(Program, scan) : scan);
+            Assert.Equal("Git.Git", Rehome.Restore.Plan.Open(file).Apps[0].Package!.Id);
+        }
+        finally { dir.Delete(true); }
+    }
+
+    [Theory]
+    [InlineData("ReHome.exe", "doesn't carry a ReHome scan")]
+    [InlineData("scan.txt", "opens the ReHome installer")]
+    [InlineData("scan.json.lnk", "opens the ReHome installer")]
+    public void Open_refuses_anything_else_in_plain_words(string name, string says)
+    {
+        var dir = Directory.CreateTempSubdirectory("rehome-open-");
+        try
+        {
+            var file = Path.Combine(dir.FullName, name);
+            File.WriteAllBytes(file, Program);
+            var e = Assert.Throws<RehomeException>(() => Rehome.Restore.Plan.Open(file));
+            Assert.Contains(says, e.Message);
+        }
+        finally { dir.Delete(true); }
+    }
 }

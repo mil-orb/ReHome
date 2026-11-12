@@ -50,7 +50,7 @@ internal static class Scanner
     public static string ToJson(Snapshot snapshot) => JsonSerializer.Serialize(snapshot, Json.Default.Snapshot);
 
     public static Snapshot FromJson(string json) =>
-        JsonSerializer.Deserialize(json, Json.Default.Snapshot) ?? throw new RehomeException("That file isn't a Rehome scan.");
+        JsonSerializer.Deserialize(json, Json.Default.Snapshot) ?? throw new RehomeException("That file isn't a ReHome scan.");
 }
 
 internal static class Files

@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="rehome" />
-    <InternalsVisibleTo Include="Rehome" />
+    <InternalsVisibleTo Include="ReHome" />
     <InternalsVisibleTo Include="Rehome.Tests" />
   </ItemGroup>
 

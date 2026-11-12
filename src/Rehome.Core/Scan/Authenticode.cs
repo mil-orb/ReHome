@@ -7,8 +7,8 @@ namespace Rehome.Scan;
 /// Reads who signed a file and whether Windows trusts that signature.
 /// The signer comes from WinVerifyTrust's own result (the leaf it actually checked), never from
 /// the first certificate in the file, which can be an intermediate or a root.
-/// Offline on purpose: no revocation fetch, so a scan never waits on the network.
-/// Restore re-checks with revocation on, against the installer it downloads.
+/// Read is offline on purpose: no revocation fetch, so a scan never waits on the network.
+/// Restore also calls Distrusted on the installer it downloads, which checks revocation over the network.
 /// </summary>
 internal static unsafe partial class Authenticode
 {
@@ -45,6 +45,42 @@ internal static unsafe partial class Authenticode
             }
         }
     }
+
+    /// <summary>
+    /// True when Windows says this file's signature must not be trusted: its certificate was revoked, an admin
+    /// distrusted it, or it chains to a root Windows doesn't trust. Checks revocation for the whole chain, online.
+    /// A revocation server that can't be reached is not a verdict, so it returns false and Read's result stands.
+    /// </summary>
+    public static bool Distrusted(string path)
+    {
+        if (!File.Exists(path))
+            return false;
+        fixed (char* p = path)
+        {
+            var file = new WintrustFileInfo { cbStruct = (uint)sizeof(WintrustFileInfo), pcwszFilePath = p };
+            var data = new WintrustData
+            {
+                cbStruct = (uint)sizeof(WintrustData),
+                dwUIChoice = WTD_UI_NONE,
+                fdwRevocationChecks = WTD_REVOKE_WHOLECHAIN,
+                dwUnionChoice = WTD_CHOICE_FILE,
+                pFile = &file,
+                dwStateAction = WTD_STATEACTION_VERIFY,
+            };
+            var action = GenericVerifyV2;
+            var result = WinVerifyTrust(-1, &action, &data);
+            data.dwStateAction = WTD_STATEACTION_CLOSE;
+            _ = WinVerifyTrust(-1, &action, &data);
+            return IsDistrust(result);
+        }
+    }
+
+    internal static bool IsDistrust(int result) => unchecked((uint)result) is CERT_E_REVOKED or TRUST_E_EXPLICIT_DISTRUST or CERT_E_UNTRUSTEDROOT;
+
+    const uint CERT_E_REVOKED = 0x800B010C;
+    const uint TRUST_E_EXPLICIT_DISTRUST = 0x800B0111;
+    const uint CERT_E_UNTRUSTEDROOT = 0x800B0109;
+    const uint WTD_REVOKE_WHOLECHAIN = 1;
 
     static string? SignerSubject(nint state)
     {

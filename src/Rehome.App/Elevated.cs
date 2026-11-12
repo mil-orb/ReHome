@@ -137,7 +137,8 @@ static partial class Elevated
         StreamWriter? writer = null;
         try
         {
-            client = new NamedPipeClientStream(".", args[1], PipeDirection.InOut, PipeOptions.Asynchronous);
+            // Identification only: the window on the other end can check who connected but can't act as the admin.
+            client = new NamedPipeClientStream(".", args[1], PipeDirection.InOut, PipeOptions.Asynchronous, System.Security.Principal.TokenImpersonationLevel.Identification);
             client.Connect(15_000);
 
             // Only the window that started us may drive us.

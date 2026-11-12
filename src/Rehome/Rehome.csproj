@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>rehome</AssemblyName>
+    <ApplicationIcon>Rehome.ico</ApplicationIcon>
     <RootNamespace>Rehome</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
     <SelfContained>true</SelfContained>

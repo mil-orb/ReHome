@@ -29,7 +29,7 @@ internal static class Errors
     public static string Describe(int code) => unchecked((uint)code) switch
     {
         0 => "Installed",
-        0x8A150011 => "The download didn't match the hash in winget's manifest. Rehome won't install it.",
+        0x8A150011 => "The download didn't match the hash in winget's manifest. ReHome won't install it.",
         0x8A150010 => "No installer for this PC's architecture or Windows version.",
         0x8A150014 or 0x8A150017 or 0x8A15004D => "Not in the catalog anymore.",
         0x8A150016 => "More than one package has this id.",

@@ -11,6 +11,8 @@ interface Methods {
   };
   showExport: { params: undefined; result: object };
   open: { params: undefined; result: Snapshot | null };
+  // The dropped file travels as a WebView2 File object beside the message (see openDropped), never as a path.
+  openDropped: { params: undefined; result: Snapshot };
   present: { params: undefined; result: { ids: string[] } };
   install: { params: { skip: string[] }; result: Summary };
   decide: { params: { confirm: string[] }; result: object };
@@ -32,6 +34,7 @@ type EventName = keyof Events;
 
 interface WebView {
   postMessage(message: unknown): void;
+  postMessageWithAdditionalObjects(message: unknown, objects: File[]): void;
   addEventListener(type: "message", listener: (e: MessageEvent) => void): void;
 }
 
@@ -62,15 +65,19 @@ export function on<E extends EventName>(name: E, fn: (data: Events[E]) => void):
   return () => set.delete(fn as (data: never) => void);
 }
 
-export function call<M extends Method>(method: M, params?: Methods[M]["params"]): Promise<Methods[M]["result"]> {
+export function call<M extends Method>(method: M, params?: Methods[M]["params"], files?: File[]): Promise<Methods[M]["result"]> {
   if (!host) return dev(method, params) as Promise<Methods[M]["result"]>;
 
   const id = next++;
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve: resolve as (v: unknown) => void, reject });
-    host.postMessage({ id, method, params });
+    if (files) host.postMessageWithAdditionalObjects({ id, method, params }, files);
+    else host.postMessage({ id, method, params });
   });
 }
+
+/** Opens a file dropped on the window. The host reads its path from WebView2, so the page never handles one. */
+export const openDropped = (files: File[]) => call("openDropped", undefined, files);
 
 /** Errors the page catches go to the host's log, so a bug report has something in it. */
 export function report(error: unknown) {
@@ -88,7 +95,7 @@ let devStop = false;
 let devDecision: ((ids: string[]) => void) | null = null;
 
 async function dev(method: Method, params: unknown): Promise<unknown> {
-  if (!import.meta.env.DEV) throw new Error("Rehome has to run inside its app window.");
+  if (!import.meta.env.DEV) throw new Error("ReHome has to run inside its app window.");
   const fixture = async () => (await import("../dev/fixture.json")).default as unknown as Snapshot;
 
   switch (method) {
@@ -100,9 +107,12 @@ async function dev(method: Method, params: unknown): Promise<unknown> {
     case "open":
       await sleep(150);
       return fixture();
+    case "openDropped":
+      await sleep(300);
+      return fixture();
     case "export":
       await sleep(600);
-      return { exported: true, file: "E:\\Rehome 7-Zip Blender Docker Desktop Git +13 more Installer.exe" };
+      return { exported: true, file: "E:\\ReHome 7-Zip Blender Docker Desktop Git +13 more Installer.exe" };
     case "showExport":
       console.info("show exported file");
       return {};

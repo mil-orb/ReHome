@@ -32,7 +32,7 @@ internal static class ScanInExe
 
         var size = BinaryPrimitives.ReadInt64LittleEndian(trailer);
         if (size <= 0 || size > Restore.Plan.MaxFileBytes || size > length - Trailer)
-            throw new RehomeException("The scan inside this Rehome.exe is damaged. Export it again on the old PC.");
+            throw new RehomeException("The scan inside this ReHome.exe is damaged. Export it again on the old PC.");
         var scan = new byte[size];
         file.Seek(length - Trailer - size, SeekOrigin.Begin);
         file.ReadExactly(scan);

@@ -22,7 +22,7 @@ sealed class MainForm : Form
     public MainForm(string? startFile)
     {
         StartFile = startFile;
-        Text = "Rehome";
+        Text = "ReHome";
         ClientSize = new Size(760, 820);
         MinimumSize = new Size(600, 520);
         StartPosition = FormStartPosition.CenterScreen;
@@ -42,8 +42,8 @@ sealed class MainForm : Form
             catch (Exception e) when (e is WebView2RuntimeNotFoundException or System.Runtime.InteropServices.COMException or InvalidOperationException or UnauthorizedAccessException)
             {
                 Log.Write(e);
-                MessageBox.Show(this, "Rehome couldn't start its window. Reinstall the Microsoft Edge WebView2 Runtime and try again.",
-                    "Rehome", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(this, "ReHome couldn't start its window. Reinstall the Microsoft Edge WebView2 Runtime and try again.",
+                    "ReHome", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Close();
             }
         };
@@ -62,8 +62,8 @@ sealed class MainForm : Form
         if (_bridge.Installing && e.CloseReason == CloseReason.UserClosing)
         {
             var answer = MessageBox.Show(this,
-                "Rehome is installing apps. If you close it, the app installing now finishes and the rest are skipped.",
-                "Close Rehome?", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+                "ReHome is installing apps. If you close it, the app installing now finishes and the rest are skipped.",
+                "Close ReHome?", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
             if (answer != DialogResult.OK)
             {
                 e.Cancel = true;
@@ -123,8 +123,11 @@ sealed class MainForm : Form
         core.PermissionRequested += (_, e) => e.State = CoreWebView2PermissionState.Deny;
         core.WebMessageReceived += (_, e) =>
         {
-            if (IsOurs(e.Source))
-                _bridge.Handle(e.WebMessageAsJson);
+            if (!IsOurs(e.Source))
+                return;
+            // Files dropped on the page arrive as WebView2 File objects. Their paths come from Windows, not the page.
+            var files = e.AdditionalObjects?.OfType<CoreWebView2File>().Select(f => f.Path).ToList();
+            _bridge.Handle(e.WebMessageAsJson, files);
         };
 
         // If the page's renderer dies, log it and load the page again. The host keeps its state.

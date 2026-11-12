@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { call, on } from "./bridge";
 import { Footer } from "./Footer";
 import { Check, Details, Disclosure, Fold, Icon, Plain, choosable, displayName, groupOf, groupTitles, hasDetails, siteOf } from "./list";
-import { Banner, FoldHeading, Search, Site } from "./ScanView";
+import { Badge, useNotices } from "./notices";
+import { FoldHeading, Search, Site } from "./ScanView";
 import type { App, ReviewItem, RunEvent, Snapshot, Summary } from "./types";
 
 type Phase = "idle" | "running" | "done";
@@ -41,7 +42,7 @@ export function RestoreView({ plan, menu, onBack }: { plan: Snapshot; menu: Reac
   const [phase, setPhase] = useState<Phase>("idle");
   const [stopping, setStopping] = useState(false);
   const [review, setReview] = useState<ReviewItem[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { fail } = useNotices();
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [activity, setActivity] = useState<Entry[]>([]);
@@ -65,13 +66,13 @@ export function RestoreView({ plan, menu, onBack }: { plan: Snapshot; menu: Reac
       (e: Error) => {
         if (!live) return;
         setPresent(new Set());
-        setError(e.message);
+        fail(e);
       },
     );
     return () => {
       live = false;
     };
-  }, [plan]);
+  }, [plan, fail]);
 
   useEffect(() => {
     const offRun = on("run", (e) => {
@@ -106,7 +107,6 @@ export function RestoreView({ plan, menu, onBack }: { plan: Snapshot; menu: Reac
       runSet.current = ids;
       current.current = null;
       setStates((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !keep.has(id))));
-      setError(null);
       setStopping(false);
       setPhase("running");
       try {
@@ -114,23 +114,23 @@ export function RestoreView({ plan, menu, onBack }: { plan: Snapshot; menu: Reac
         await call("install", { skip });
         setPhase("done");
       } catch (e) {
-        setError((e as Error).message);
+        fail(e);
         setPhase("idle");
       } finally {
         setReview(null);
       }
     },
-    [apps, toInstall, selected],
+    [apps, toInstall, selected, fail],
   );
 
   const stop = () => {
     setStopping(true);
-    call("stop").catch((e: Error) => setError(e.message));
+    call("stop").catch(fail);
   };
 
   const decide = (confirm: string[]) => {
     setReview(null);
-    call("decide", { confirm }).catch((e: Error) => setError(e.message));
+    call("decide", { confirm }).catch(fail);
   };
 
   const run = runSet.current;
@@ -145,6 +145,16 @@ export function RestoreView({ plan, menu, onBack }: { plan: Snapshot; menu: Reac
   const nowState = current.current ? states[current.current]?.state : undefined;
   const now = nowState === "verifying" || nowState === "installing" ? current.current : null;
   const installing = run.some((id) => ["installing", "installed", "restart"].includes(states[id]?.state ?? ""));
+  const step: Step = phase === "done" ? "done" : phase === "running" ? (installing ? "install" : "check") : "choose";
+
+  useEffect(() => {
+    if (now) document.querySelector(".row.active")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [now]);
+
+  // The run's outcome is at the top of the list. Bring it into view when the run ends.
+  useEffect(() => {
+    if (phase === "done") document.querySelector(".list")?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [phase]);
 
   const title =
     phase === "running"
@@ -200,9 +210,10 @@ export function RestoreView({ plan, menu, onBack }: { plan: Snapshot; menu: Reac
         <Search value={query} onChange={setQuery} />
         {menu}
       </header>
-      {error && <Banner message={error} onClose={() => setError(null)} />}
+      <Steps at={step} />
 
       <div className="list">
+        {phase === "done" && <Outcome summary={summary} failed={failed} names={names} states={states} stopped={stopping} />}
         {(["apps", "store", "vendor", "system"] as const).map((g) => (
           <Group
             key={g}
@@ -215,8 +226,8 @@ export function RestoreView({ plan, menu, onBack }: { plan: Snapshot; menu: Reac
             locked={locked}
             expanded={expanded}
             onExpand={setExpanded}
-            onError={setError}
-            action={g === "vendor" && <OpenSites apps={apps.filter((a) => groupOf(a, true) === "vendor" && selected.has(a.localId))} onError={setError} />}
+            onError={fail}
+            action={g === "vendor" && <OpenSites apps={apps.filter((a) => groupOf(a, true) === "vendor" && selected.has(a.localId))} onError={fail} />}
           />
         ))}
         <Fold title="Already installed" apps={byName(alreadyHere)} icons={{}} />
@@ -256,7 +267,7 @@ export function RestoreView({ plan, menu, onBack }: { plan: Snapshot; menu: Reac
       </Footer>
 
       {review && <Review items={review} apps={apps} onDecide={decide} />}
-      {showLog && <Activity entries={activity} onClose={() => setShowLog(false)} onError={setError} />}
+      {showLog && <Activity entries={activity} onClose={() => setShowLog(false)} onError={fail} />}
     </main>
   );
 }
@@ -292,7 +303,7 @@ const said: Record<string, string> = {
 };
 
 /** What happened this session, newest last. The same outcomes are in the log file the button opens. */
-function Activity({ entries, onClose, onError }: { entries: Entry[]; onClose: () => void; onError: (m: string) => void }) {
+function Activity({ entries, onClose, onError }: { entries: Entry[]; onClose: () => void; onError: (e: unknown) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     ref.current?.querySelector<HTMLElement>("button")?.focus();
@@ -317,7 +328,7 @@ function Activity({ entries, onClose, onError }: { entries: Entry[]; onClose: ()
           ))}
         </ol>
         <div className="actions">
-          <button className="ghost" onClick={() => call("showLog").catch((e: Error) => onError(e.message))}>
+          <button className="ghost" onClick={() => call("showLog").catch(onError)}>
             Open log file
           </button>
           <button className="primary" onClick={onClose}>
@@ -339,7 +350,7 @@ interface GroupProps {
   locked: boolean;
   expanded: string | null;
   onExpand: (id: string | null) => void;
-  onError: (message: string) => void;
+  onError: (e: unknown) => void;
   action?: React.ReactNode;
 }
 
@@ -394,7 +405,7 @@ function Group({ title, apps, folded, selected, onSelect, states, locked, expand
           return (
             <div key={a.localId}>
               <Check
-                className={lockedFor(a) && !ev ? "row idle" : "row"}
+                className={`row${lockedFor(a) && !ev ? " idle" : ""}${ev?.state === "verifying" || ev?.state === "installing" ? " active" : ""}`}
                 label={name}
                 checked={selected.has(a.localId)}
                 disabled={lockedFor(a)}
@@ -403,6 +414,7 @@ function Group({ title, apps, folded, selected, onSelect, states, locked, expand
                 trailing={
                   <>
                     {ev && <State ev={ev} />}
+                    {ev && <RowProgress ev={ev} />}
                     {a.status === "Manual" && <Site app={a} />}
                     {hasDetails(a) && <Disclosure open={isOpen} label={`${name} details`} onToggle={() => onExpand(isOpen ? null : a.localId)} />}
                   </>
@@ -421,10 +433,10 @@ function Group({ title, apps, folded, selected, onSelect, states, locked, expand
 }
 
 /**
- * Apps no official catalog carries. Rehome never downloads these: it opens the page the vendor's own uninstall
+ * Apps no official catalog carries. ReHome never downloads these: it opens the page the vendor's own uninstall
  * entry named, and each row shows that page's host first.
  */
-function OpenSites({ apps, onError }: { apps: App[]; onError: (message: string) => void }) {
+function OpenSites({ apps, onError }: { apps: App[]; onError: (e: unknown) => void }) {
   const withSite = apps.filter((a) => siteOf(a));
   const n = withSite.length;
   return (
@@ -436,7 +448,7 @@ function OpenSites({ apps, onError }: { apps: App[]; onError: (message: string) 
           try {
             await call("link", { localId: a.localId, kind: siteOf(a)!.kind });
           } catch (e) {
-            onError((e as Error).message);
+            onError(e);
             return;
           }
         }
@@ -528,3 +540,98 @@ function Review({ items, apps, onDecide }: { items: ReviewItem[]; apps: App[]; o
   );
 }
 
+
+type Step = "choose" | "check" | "install" | "done";
+const steps: [Step, string][] = [
+  ["choose", "Choose"],
+  ["check", "Check"],
+  ["install", "Install"],
+  ["done", "Done"],
+];
+
+/** Where the restore is. Only what the host has reported moves it on. */
+function Steps({ at }: { at: Step }) {
+  const index = steps.findIndex(([s]) => s === at);
+  return (
+    <ol className="steps" aria-label="Restore steps">
+      {steps.map(([s, label], i) => (
+        <li key={s} className={i < index ? "past" : i === index ? "now" : ""} aria-current={i === index ? "step" : undefined}>
+          <span className="dot" aria-hidden="true">
+            {i < index ? (
+              <svg viewBox="0 0 12 12">
+                <path d="M3 6.2l2 2 4-4.4" />
+              </svg>
+            ) : (
+              i + 1
+            )}
+          </span>
+          {label}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** A thin bar along the bottom of the row: how much of the download is checked, then a sweep while it installs. */
+function RowProgress({ ev }: { ev: RunEvent }) {
+  if (ev.state === "verifying")
+    return <span className="row-progress" style={{ "--p": `${Math.round((ev.progress ?? 0) * 100)}%` } as React.CSSProperties} aria-hidden="true" />;
+  if (ev.state === "installing") return <span className="row-progress sweep" aria-hidden="true" />;
+  return null;
+}
+
+/** How the run ended, at the top of the list: counts, what to do next, and what went wrong in words. */
+function Outcome({ summary, failed, names, states, stopped }: {
+  summary: Summary;
+  failed: string[];
+  names: Map<string, string>;
+  states: Record<string, RunEvent>;
+  stopped: boolean;
+}) {
+  const level = summary.failed > 0 ? "error" : summary.restart > 0 || stopped ? "warning" : "success";
+  const tiles: [number, string, string][] = (
+    [
+      [summary.installed, "Installed", "installed"],
+      [summary.present, "Already here", "present"],
+      [summary.restart, "Need a restart", "restart"],
+      [summary.failed, "Didn't install", "failed"],
+      [summary.skipped, "Skipped", "skipped"],
+    ] as [number, string, string][]
+  ).filter(([n]) => n > 0);
+  const next =
+    summary.failed > 0
+      ? "Each one says why below. Fix what it says, then press Retry. The log has the details."
+      : summary.restart > 0
+        ? "Restart Windows to finish. The apps are installed and will be ready after it starts again."
+        : stopped
+          ? "Nothing more will install. Press Back to choose again."
+          : "Everything you picked is installed. You can close ReHome.";
+  return (
+    <section className={`outcome tone-${level}`} aria-labelledby="outcome-next">
+      <div className="outcome-head">
+        <Badge level={level} />
+        <p id="outcome-next">{next}</p>
+      </div>
+      {tiles.length > 0 && (
+        <dl className="tiles">
+          {tiles.map(([n, label, kind]) => (
+            <div key={kind} className={kind}>
+              <dt>{label}</dt>
+              <dd>{n}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {failed.length > 0 && (
+        <ul className="failures">
+          {failed.map((id) => (
+            <li key={id}>
+              <strong>{names.get(id) ?? id}</strong>
+              <span>{states[id]?.message ?? "It didn't install."}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}

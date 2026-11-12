@@ -24,6 +24,25 @@ public sealed class PlanTests : IDisposable
         Assert.Equal("7zip.7zip", Assert.Single(Plan.Installable(s)).Package!.Id);
     }
 
+    [Fact]
+    public void Each_local_id_names_one_app()
+    {
+        // JSON's \n escape: the id decodes to "a", newline, "b".
+        var s = Load(Doc(
+            """{ "name": "Git", "status": "Ready", "package": { "id": "Git.Git", "source": "winget" }, "localId": "same" },""" +
+            """{ "name": "Not Git", "status": "Ready", "package": { "id": "Evil.Thing", "source": "winget" }, "localId": "same" },""" +
+            """{ "name": "Bad id", "status": "Ready", "package": { "id": "Foo.Bar", "source": "winget" }, "localId": "a\nb" }"""));
+        var app = Assert.Single(s.Apps);
+        Assert.Equal("Git", app.Name);
+    }
+
+    [Fact]
+    public void An_icon_with_a_trailing_newline_is_dropped()
+    {
+        var s = Load(Doc("""{ "name": "X", "status": "Manual", "localId": "a", "icon": "data:image/png;base64,AAAA\n" }"""));
+        Assert.Null(Assert.Single(s.Apps).Icon);
+    }
+
     [Theory]
     [InlineData("Foo.Bar;calc", "winget")]
     [InlineData("Foo.Bar --override x", "winget")]
@@ -80,7 +99,7 @@ public sealed class PlanTests : IDisposable
     public void A_newer_format_is_refused_with_a_reason()
     {
         var e = Assert.Throws<RehomeException>(() => Load(Doc("", format: 2)));
-        Assert.Contains("newer Rehome", e.Message);
+        Assert.Contains("newer ReHome", e.Message);
     }
 
     [Theory]
@@ -152,6 +171,16 @@ public class WingetArgsTests
 
 public class TrustTests
 {
+    [Theory]
+    [InlineData(unchecked((int)0x800B010C), true)]  // revoked
+    [InlineData(unchecked((int)0x800B0111), true)]  // explicitly distrusted
+    [InlineData(unchecked((int)0x800B0109), true)]  // untrusted root
+    [InlineData(unchecked((int)0x800B010E), false)] // revocation server unreachable: not a verdict
+    [InlineData(unchecked((int)0x800B0100), false)] // not signed: the review question handles it
+    [InlineData(0, false)]
+    public void Only_a_definite_no_from_Windows_fails_an_install(int result, bool distrust) =>
+        Assert.Equal(distrust, Rehome.Scan.Authenticode.IsDistrust(result));
+
     static Signer S(string org, bool valid = true) => new(org, org, $"O={org}", "exe", valid);
 
     [Fact] public void Same_org_is_trusted() => Assert.Equal(Verdict.Trusted, Trust.Decide(S("Microsoft Corporation"), S("Microsoft Corporation."), "exe"));

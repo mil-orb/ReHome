@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { call } from "./bridge";
+import { useNotices } from "./notices";
 import type { App, LinkKind } from "./types";
 
 // "Notepad++ (64-bit x64)" reads as "Notepad++". Versions stay: Python 3.12 and 3.13 are different apps.
@@ -130,8 +131,8 @@ const linkNames: [LinkKind, string][] = [
 ];
 
 /** Who makes it, who signed it, and where to read about it. Every link opens on the vendor's own site or the catalog. */
-export function Details({ app, onError }: { app: App; onError: (message: string) => void }) {
-  const open = (kind: LinkKind) => call("link", { localId: app.localId, kind }).catch((e: Error) => onError(e.message));
+export function Details({ app, onError }: { app: App; onError: (e: unknown) => void }) {
+  const open = (kind: LinkKind) => call("link", { localId: app.localId, kind }).catch(onError);
   const signedBy = app.signer?.organization ?? app.signer?.name;
   const facts = [app.publisher, app.version, signedBy && signedBy !== app.publisher ? `Signed by ${signedBy}` : null].filter(Boolean);
   const links = linkNames.filter(([k]) => app.links?.[k]);
@@ -177,7 +178,7 @@ export function Fold({ title, apps, icons, trailing }: {
 }) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { fail } = useNotices();
   if (apps.length === 0) return null;
   return (
     <section>
@@ -213,10 +214,9 @@ export function Fold({ title, apps, icons, trailing }: {
               onExpand={(o) => setExpanded(o ? a.localId : null)}
               trailing={trailing?.(a)}
             />
-            {expanded === a.localId && <Details app={a} onError={setError} />}
+            {expanded === a.localId && <Details app={a} onError={fail} />}
           </div>
         ))}
-      {error && <p className="error inline">{error}</p>}
     </section>
   );
 }

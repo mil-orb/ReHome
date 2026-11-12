@@ -33,8 +33,8 @@ static class Program
         catch (WebView2RuntimeNotFoundException)
         {
             MessageBox.Show(
-                "Rehome needs the Microsoft Edge WebView2 Runtime. Install it from Microsoft and open Rehome again.",
-                "Rehome", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                "ReHome needs the Microsoft Edge WebView2 Runtime. Install it from Microsoft and open ReHome again.",
+                "ReHome", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return 1;
         }
 
@@ -49,8 +49,8 @@ static class Program
         if (e is not null)
             Log.Write(e);
         MessageBox.Show(
-            $"Rehome ran into a problem and needs to close. Details are in {Log.FilePath}",
-            "Rehome", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            $"ReHome ran into a problem and needs to close. Details are in {Log.FilePath}",
+            "ReHome", MessageBoxButtons.OK, MessageBoxIcon.Error);
         Environment.Exit(1);
     }
 }

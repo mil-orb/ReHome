@@ -12,6 +12,29 @@ internal static partial class Plan
     public const long MaxFileBytes = 10 << 20;
     const int MaxIconChars = 280_000;
 
+    /// <summary>
+    /// A file the person picked or dropped: an exported ReHome.exe (the scan appended to it is read, the program never
+    /// runs) or a scan .json. Anything else is refused by name before a byte is parsed.
+    /// </summary>
+    public static Snapshot Open(string path)
+    {
+        var ext = Path.GetExtension(path);
+        if (ext.Equals(".json", StringComparison.OrdinalIgnoreCase))
+            return Load(path);
+        if (!ext.Equals(".exe", StringComparison.OrdinalIgnoreCase))
+            throw new RehomeException("ReHome opens the ReHome installer you exported on the old PC, or a scan .json file.");
+        byte[]? scan;
+        try
+        {
+            scan = ScanInExe.Read(path).Scan;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new RehomeException("Couldn't read that file. Check it isn't open somewhere else.");
+        }
+        return Parse(scan ?? throw new RehomeException("That program doesn't carry a ReHome scan. Open the installer you exported on the old PC."));
+    }
+
     public static Snapshot Load(string path)
     {
         byte[] bytes;
@@ -21,7 +44,7 @@ internal static partial class Plan
             if (!info.Exists)
                 throw new RehomeException("That file doesn't exist anymore.");
             if (info.Length > MaxFileBytes)
-                throw new RehomeException("That file is too large to be a Rehome scan.");
+                throw new RehomeException("That file is too large to be a ReHome scan.");
             bytes = File.ReadAllBytes(path);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -45,21 +68,23 @@ internal static partial class Plan
         }
         catch (System.Text.Json.JsonException)
         {
-            throw new RehomeException("That file isn't a Rehome scan.");
+            throw new RehomeException("That file isn't a ReHome scan.");
         }
 
         if (snapshot.Format > 1)
-            throw new RehomeException("That scan was made by a newer Rehome. Update Rehome and open it again.");
+            throw new RehomeException("That scan was made by a newer ReHome. Update ReHome and open it again.");
         if (snapshot.Apps is null)
-            throw new RehomeException("That file isn't a Rehome scan.");
+            throw new RehomeException("That file isn't a ReHome scan.");
         // Scans from before the seal have no check and still open. One that has a check must match it.
         if (snapshot.Check is not null && !ScanSeal.Matches(bytes, snapshot.Check))
-            throw new RehomeException("This scan was changed or damaged after it was saved, so Rehome won't install from it. Export it again on the old PC.");
+            throw new RehomeException("This scan was changed or damaged after it was saved, so ReHome won't install from it. Export it again on the old PC.");
 
         return snapshot with
         {
+            // The page and the installer refer to apps by LocalId, so each one names exactly one app: the first wins.
             Apps = snapshot.Apps
-                .Where(a => a is not null && !string.IsNullOrEmpty(a.Name) && !string.IsNullOrEmpty(a.LocalId))
+                .Where(a => a is not null && !string.IsNullOrEmpty(a.Name) && IsLocalId(a.LocalId))
+                .DistinctBy(a => a.LocalId, StringComparer.Ordinal)
                 .Select(Clean)
                 .Where(a => !BuiltIn(a))
                 .ToList(),
@@ -101,11 +126,14 @@ internal static partial class Plan
     public static IReadOnlyList<App> Installable(Snapshot snapshot) =>
         snapshot.Apps.Where(a => a.Package is { } p && IsInstallable(p) && (a.Status == Status.Ready || a.Status == Status.Guess && a.Confirmed == true)).ToList();
 
+    /// <summary>An id from a scan: a registry or package path, so printable text of a sane length and no control characters.</summary>
+    internal static bool IsLocalId(string? id) => id is { Length: > 0 and <= 512 } && !id.Any(char.IsControl);
+
     public static bool IsInstallable(CatalogRef p) => p.Source is "winget" or "msstore" && PackageId().IsMatch(p.Id);
 
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9.+_-]{0,127}$")]
     internal static partial Regex PackageId();
 
-    [GeneratedRegex(@"^data:image/png;base64,[A-Za-z0-9+/]+={0,2}$")]
+    [GeneratedRegex(@"^data:image/png;base64,[A-Za-z0-9+/]+={0,2}\z")]
     private static partial Regex PngDataUri();
 }

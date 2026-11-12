@@ -140,6 +140,9 @@ internal sealed class Verifier(Inventory inventory, string workRoot)
 
             var from = file.EndsWith(".msi", StringComparison.OrdinalIgnoreCase) ? "msi" : "exe";
             var signer = Authenticode.Read(file, from);
+            if (signer is not null && await Task.Run(() => Authenticode.Distrusted(file), cancel))
+                return new Checked(app.LocalId, Verdict.Failed, null,
+                    "Windows says the certificate this installer is signed with was revoked or isn't trusted. Not installed.", Sha256: sha);
             var verdict = Trust.Decide(app.Signer, signer, manifest.Type);
 
             item = item with

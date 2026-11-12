@@ -1,5 +1,8 @@
 import { Component, useCallback, useEffect, useRef, useState } from "react";
-import { call, report } from "./bridge";
+import { Logo } from "./brand";
+import { call, openDropped, report } from "./bridge";
+import { DropToOpen } from "./drop";
+import { NoticeProvider, useNotices } from "./notices";
 import { RestoreView } from "./RestoreView";
 import { ScanView } from "./ScanView";
 import type { About as AboutInfo, Snapshot, Theme } from "./types";
@@ -9,37 +12,68 @@ type Dialog = "about" | "preferences" | null;
 const themes: Theme[] = ["system", "light", "dark"];
 
 export function App() {
-  const [view, setView] = useState<View>({ kind: "start" });
+  return (
+    <NoticeProvider>
+      <Shell />
+    </NoticeProvider>
+  );
+}
+
+/** Screen changes cross-fade where the web view supports it. Reduced motion gets an instant swap. */
+function transition(update: () => void) {
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+  if (!doc.startViewTransition || matchMedia("(prefers-reduced-motion: reduce)").matches) update();
+  else doc.startViewTransition(update);
+}
+
+function Shell() {
+  const [view, setViewNow] = useState<View>({ kind: "start" });
   const [dialog, setDialog] = useState<Dialog>(null);
-  const [toast, setToast] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>("system");
   const [booted, setBooted] = useState(false);
+  const { notify, fail } = useNotices();
+  const setView = useCallback((next: View | ((v: View) => View)) => transition(() => setViewNow(next)), []);
 
   useEffect(() => {
     call("boot").then(
       (b) => {
         setTheme(b.theme);
-        if (b.plan) setView({ kind: "restore", plan: b.plan, n: 1 });
-        if (b.error) setToast(b.error);
+        if (b.plan) setViewNow({ kind: "restore", plan: b.plan, n: 1 });
+        if (b.error) fail(b.error);
         setBooted(true);
       },
       (e: Error) => {
-        setToast(e.message);
+        fail(e);
         setBooted(true);
       },
     );
-  }, []);
+  }, [fail]);
 
-  const home = useCallback(() => setView({ kind: "start" }), []);
-  const scan = useCallback(() => setView((v) => ({ kind: "scan", n: v.kind === "scan" ? v.n + 1 : 1 })), []);
+  const home = useCallback(() => setView({ kind: "start" }), [setView]);
+  const scan = useCallback(() => setView((v) => ({ kind: "scan", n: v.kind === "scan" ? v.n + 1 : 1 })), [setView]);
+  const restore = useCallback(
+    (plan: Snapshot) => setView((v) => ({ kind: "restore", plan, n: v.kind === "restore" ? v.n + 1 : 1 })),
+    [setView],
+  );
   const open = useCallback(async () => {
     try {
       const plan = await call("open");
-      if (plan) setView((v) => ({ kind: "restore", plan, n: v.kind === "restore" ? v.n + 1 : 1 }));
+      if (plan) restore(plan);
     } catch (e) {
-      setToast((e as Error).message);
+      fail(e);
     }
-  }, []);
+  }, [restore, fail]);
+  const dropped = useCallback(
+    async (file: File) => {
+      try {
+        restore(await openDropped([file]));
+      } catch (e) {
+        fail(e);
+      }
+    },
+    [restore, fail],
+  );
+  const refuse = useCallback((title: string) => notify({ level: "warning", title }), [notify]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -66,18 +100,9 @@ export function App() {
       {view.kind === "start" && <Start onScan={scan} onOpen={() => void open()} menu={menu} />}
       {view.kind === "scan" && <ScanView menu={menu} rescan={view.n} onBack={home} />}
       {view.kind === "restore" && <RestoreView key={view.n} plan={view.plan} menu={menu} onBack={home} />}
-      {dialog === "about" && <About onClose={() => setDialog(null)} onError={setToast} />}
-      {dialog === "preferences" && (
-        <Preferences theme={theme} onTheme={setTheme} onClose={() => setDialog(null)} onError={setToast} />
-      )}
-      {toast && (
-        <div className="toast" role="alert">
-          <span>{toast}</span>
-          <button className="ghost" aria-label="Dismiss" onClick={() => setToast(null)}>
-            ×
-          </button>
-        </div>
-      )}
+      {dialog === "about" && <About onClose={() => setDialog(null)} onError={fail} />}
+      {dialog === "preferences" && <Preferences theme={theme} onTheme={setTheme} onClose={() => setDialog(null)} onError={fail} />}
+      <DropToOpen onFile={(f) => void dropped(f)} onRefuse={refuse} />
     </>
   );
 }
@@ -91,7 +116,8 @@ function Start({ onScan, onOpen, menu }: { onScan: () => void; onOpen: () => voi
       </header>
       <div className="start">
         <div className="intro">
-          <h1>Rehome</h1>
+          <Logo size={72} className="mark" />
+          <h1>ReHome</h1>
           <p>Your apps on a fresh Windows, a new laptop or a VM</p>
         </div>
         <div className="choices">
@@ -108,10 +134,14 @@ function Start({ onScan, onOpen, menu }: { onScan: () => void; onOpen: () => voi
         </div>
         <ol className="how" aria-label="How it works">
           <li>Scan your old PC and pick the apps to bring</li>
-          <li>Export one Rehome.exe to a USB drive</li>
+          <li>Export one ReHome.exe to a USB drive</li>
           <li>Open it on the new PC and press Install</li>
         </ol>
-        <p className="fine">Installs only from winget and the Microsoft Store. Every installer is checked first.</p>
+        <p className="fine">
+          Installs only from winget and the Microsoft Store. Every installer is checked first.
+          <br />
+          Already have the installer from your old PC? Drop it on this window.
+        </p>
       </div>
     </main>
   );
@@ -158,7 +188,7 @@ function Menu({ onScan, onOpen, onDialog }: { onScan: () => void; onOpen: () => 
     ["Scan this PC", "", onScan],
     ["Restore from a scan…", "Ctrl+O", onOpen],
     ["Preferences", "Ctrl+,", () => onDialog("preferences")],
-    ["About Rehome", "", () => onDialog("about")],
+    ["About ReHome", "", () => onDialog("about")],
   ];
 
   return (
@@ -243,11 +273,11 @@ function Preferences({ theme, onTheme, onClose, onError }: {
   theme: Theme;
   onTheme: (t: Theme) => void;
   onClose: () => void;
-  onError: (m: string) => void;
+  onError: (e: unknown) => void;
 }) {
   const set = (t: Theme) => {
     onTheme(t);
-    call("setPreferences", { theme: t }).catch((e: Error) => onError(e.message));
+    call("setPreferences", { theme: t }).catch(onError);
   };
   return (
     <Modal title="Preferences" onClose={onClose}>
@@ -282,19 +312,20 @@ function Preferences({ theme, onTheme, onClose, onError }: {
       </div>
       <div className="field">
         <span>Log</span>
-        <button onClick={() => call("showLog").catch((e: Error) => onError(e.message))}>Show in Explorer</button>
+        <button onClick={() => call("showLog").catch(onError)}>Show in Explorer</button>
       </div>
     </Modal>
   );
 }
 
-function About({ onClose, onError }: { onClose: () => void; onError: (m: string) => void }) {
+function About({ onClose, onError }: { onClose: () => void; onError: (e: unknown) => void }) {
   const [info, setInfo] = useState<AboutInfo | null>(null);
   useEffect(() => {
-    call("about").then(setInfo, (e: Error) => onError(e.message));
+    call("about").then(setInfo, onError);
   }, [onError]);
   return (
-    <Modal title="Rehome" onClose={onClose}>
+    <Modal title="ReHome" onClose={onClose}>
+      <Logo size={48} className="about-mark" />
       <dl className="about">
         <dt>Version</dt>
         <dd>{info?.version ?? "…"}</dd>
@@ -311,11 +342,11 @@ function About({ onClose, onError }: { onClose: () => void; onError: (m: string)
 }
 
 /** Last line of defence. A render error shows a way out instead of a blank window, and lands in the log. */
-export class Boundary extends Component<{ children: React.ReactNode }, { failed: boolean }> {
-  state = { failed: false };
+export class Boundary extends Component<{ children: React.ReactNode }, { failed: boolean; message: string }> {
+  state = { failed: false, message: "" };
 
-  static getDerivedStateFromError() {
-    return { failed: true };
+  static getDerivedStateFromError(error: unknown) {
+    return { failed: true, message: error instanceof Error ? error.message : String(error) };
   }
 
   componentDidCatch(error: unknown) {
@@ -324,10 +355,21 @@ export class Boundary extends Component<{ children: React.ReactNode }, { failed:
 
   render() {
     if (!this.state.failed) return this.props.children;
+    // Plain markup only, and the bridge call may fail too: the page itself is what broke.
     return (
-      <div className="centered">
-        <p className="error">Something went wrong.</p>
-        <button onClick={() => location.reload()}>Reload</button>
+      <div className="centered crashed" role="alert">
+        <Logo size={48} />
+        <h1>Something went wrong in this window</h1>
+        <p>Reload to carry on. If it happens again, open the log and attach it to a bug report.</p>
+        {this.state.message && <code className="crash-detail">{this.state.message}</code>}
+        <div className="actions">
+          <button className="ghost" onClick={() => call("showLog").catch(() => {})}>
+            Open log
+          </button>
+          <button className="primary" onClick={() => location.reload()}>
+            Reload
+          </button>
+        </div>
       </div>
     );
   }

@@ -3,7 +3,8 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <UseWindowsForms>true</UseWindowsForms>
-    <AssemblyName>Rehome</AssemblyName>
+    <AssemblyName>ReHome</AssemblyName>
+    <ApplicationIcon>Rehome.ico</ApplicationIcon>
     <RootNamespace>Rehome.Shell</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>

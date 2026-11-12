@@ -8,7 +8,7 @@ flowchart LR
     direction TB
     scan["Scanner + Resolver<br/>(Rehome.Core)"] --> pick["Pick apps<br/>(UI)"] --> export["Export<br/>ScanSeal + ScanInExe"]
   end
-  export -- "Rehome … Installer.exe<br/>program bytes + sealed scan" --> open
+  export -- "ReHome … Installer.exe<br/>program bytes + sealed scan" --> open
   subgraph new["New PC"]
     direction TB
     open["Portable.Restart<br/>Plan.Parse"] --> verify["VerifyAll<br/>download, SHA-256, signer<br/>(unelevated)"] --> helper["Elevated helper<br/>Runner + WingetCli"]
@@ -22,7 +22,7 @@ flowchart LR
 |---|---|---|
 | `src/Rehome.Core` | Scanning, matching, scan format, restore planning, verification, install runner. No UI. | winget COM interop (`Microsoft.WindowsPackageManager.ComInterop`) |
 | `src/Rehome` | `rehome.exe`, the CLI. Argument parsing and printing only. | Core |
-| `src/Rehome.App` | `Rehome.exe`, the desktop app: a WinForms window hosting WebView2, a message bridge, the elevated helper, portable start. | Core, WebView2 |
+| `src/Rehome.App` | `ReHome.exe`, the desktop app: a WinForms window hosting WebView2, a message bridge, the elevated helper, portable start. | Core, WebView2 |
 | `src/Rehome.App/ui` | React 19 + Vite UI, compiled into the exe as embedded resources. | npm, pinned and locked |
 | `tests/Rehome.Tests` | xUnit tests for Core. No winget calls, no registry writes, no network. | Core |
 
@@ -41,7 +41,7 @@ src/Rehome.Core/
   Selection.cs        What the person ticked, applied to a scan
   ScanSeal.cs         SHA-256 seal written into the scan's own "check" field
   ScanInExe.cs        Scan appended to an exe: [program][scan][int64 length]["REHOMESC"]
-  ExportName.cs       "Rehome 7-Zip Brave VLC Installer.exe"
+  ExportName.cs       "ReHome 7-Zip Brave VLC Installer.exe"
   Restore/Plan.cs     Opening a scan: seal check, allowlists, cleaning. All scan input passes here
   Restore/Verify.cs   One installer: download via winget, SHA-256 vs manifest, signer vs scan -> Verdict
   Restore/VerifyAll.cs  Verifies many in parallel, owns the Downloads folder
@@ -50,25 +50,36 @@ src/Rehome.Core/
   Restore/Errors.cs   winget HRESULTs -> sentences a person can act on
 src/Rehome.App/
   Program.cs          Entry: elevated helper, portable restart, crash handlers, window
-  Portable.cs         Relocation to %LOCALAPPDATA%\Rehome\App\<hash>\ so winget's winmd sits beside the exe
+  Portable.cs         Relocation to %LOCALAPPDATA%\Rehome\App\<hash>\ so winget's winmd sits beside the exe; the only place it elevates from
   MainForm.cs         The window. WebView2 locked to https://app.rehome.internal/ served from resources
   Bridge.cs           Every message the page can send, and the log
   Elevated.cs         Both ends of the named pipe to the elevated helper
   AppIcons.cs         Icons from installed files, as PNG data URIs
 src/Rehome.App/ui/src/
-  App.tsx             Start screen, dialogs, error boundary, toasts
+  App.tsx             Start screen, menu, dialogs, screen changes, error boundary
   ScanView.tsx        Old PC: the app list and Export
-  RestoreView.tsx     New PC: install list, review dialog, progress, results
+  RestoreView.tsx     New PC: steps, install list, row progress, review dialog, outcome
+  notices.tsx         Every message the window shows: cards that close themselves, errors that stay
+  drop.tsx            Drop the exported installer on the window to restore from it
+  brand.tsx           The logo, drawn inline (same shapes as assets/logo.svg)
+  Footer.tsx          The bottom bar: Back, what's happening, the next step, progress
   list.tsx            Grouped, searchable list shared by both views
   bridge.ts           Typed calls to the host, plus a simulated host for `npm run dev`
   types.ts            TypeScript mirror of Model.cs
+src/Rehome.App/ui/scripts/
+  screenshots.mjs     npm run screenshots: README images from the dev UI
+  icon.mjs            npm run icon: Rehome.ico from assets/logo.svg and logo-small.svg
+  edge.mjs            Headless Edge over DevTools, used by both. No packages
+assets/
+  logo.svg            The mark, 32 px and up
+  logo-small.svg      The 16 to 24 px version
 ```
 
 ## The bridge
 
 The page never touches the machine. It sends `{ id, method, params }` through `window.chrome.webview.postMessage`; `Bridge.cs` answers with `{ id, result }` or `{ id, error }`, where `error` is a sentence to show. Long work (scan, verify, install) pushes events without an id.
 
-Methods: `boot`, `scan`, `icons`, `export`, `showExport`, `open`, `present`, `install`, `decide`, `stop`, `link`, `about`, `setPreferences`, `showLog`, `log`.
+Methods: `boot`, `scan`, `icons`, `export`, `showExport`, `open`, `openDropped`, `present`, `install`, `decide`, `stop`, `link`, `about`, `setPreferences`, `showLog`, `log`.
 
 The page refers to apps by `localId` only. The host looks each one up in its own copy of the scan, so the page can't hand the host a package id, a URL or a path. To add a method, change four places together:
 
@@ -119,4 +130,4 @@ These are the invariants a change must not break. Each has tests or a single cho
 
 ## Where data lives
 
-On any PC Rehome runs on, everything is under `%LOCALAPPDATA%\Rehome`: `preferences.json`, `rehome.log`, `Downloads\` (installers being checked), `App\<hash>\` (the portable copy), and the WebView2 profile. Nothing in the registry.
+On any PC ReHome runs on, everything is under `%LOCALAPPDATA%\Rehome`: `preferences.json`, `rehome.log`, `Downloads\` (installers being checked), `App\<hash>\` (the portable copy), and the WebView2 profile. Nothing in the registry.

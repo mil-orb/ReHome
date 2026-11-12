@@ -17,7 +17,7 @@ public class ExportNameTests
 
     [Fact]
     public void A_short_list_names_every_app_in_order() =>
-        Assert.Equal("Rehome 7-Zip Brave VLC media player Installer.exe",
+        Assert.Equal("ReHome 7-Zip Brave VLC media player Installer.exe",
             ExportName.For([A("VLC media player"), A("Brave"), A("7-Zip 19.00 (x64)")]));
 
     [Fact]
@@ -25,7 +25,7 @@ public class ExportNameTests
     {
         var apps = Enumerable.Range(0, 50).Select(i => A($"App {(char)('A' + i / 26)}{(char)('A' + i % 26)}")).ToList();
         var name = ExportName.For(apps);
-        Assert.StartsWith("Rehome App AA App AB", name);
+        Assert.StartsWith("ReHome App AA App AB", name);
         Assert.Matches(@" \+\d+ more Installer\.exe$", name);
         Assert.True(name.Length <= 6 + 1 + 60 + " Installer.exe".Length, name);
     }
@@ -33,7 +33,7 @@ public class ExportNameTests
     [Fact]
     public void Duplicates_collapse_and_nothing_still_has_a_name()
     {
-        Assert.Equal("Rehome Git Installer.exe", ExportName.For([A("Git 2.45"), A("Git 2.46")]));
-        Assert.Equal("Rehome Installer.exe", ExportName.For([]));
+        Assert.Equal("ReHome Git Installer.exe", ExportName.For([A("Git 2.45"), A("Git 2.46")]));
+        Assert.Equal("ReHome Installer.exe", ExportName.For([]));
     }
 }

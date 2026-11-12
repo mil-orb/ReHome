@@ -55,15 +55,15 @@ jobs:
       - name: Checksum
         shell: pwsh
         run: |
-          $hash = (Get-FileHash out/Rehome.exe -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  Rehome.exe" | Set-Content -NoNewline out/SHA256SUMS.txt
-          "Rehome.exe SHA-256: $hash" >> $env:GITHUB_STEP_SUMMARY
+          $hash = (Get-FileHash out/ReHome.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  ReHome.exe" | Set-Content -NoNewline out/SHA256SUMS.txt
+          "ReHome.exe SHA-256: $hash" >> $env:GITHUB_STEP_SUMMARY
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: Rehome
+          name: ReHome
           path: |
-            out/Rehome.exe
+            out/ReHome.exe
             out/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14

@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Something Rehome should do that it doesn't
+about: Something ReHome should do that it doesn't
 labels: enhancement
 ---
 

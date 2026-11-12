@@ -23,6 +23,11 @@ static class Portable
 
     static bool Relocated => !string.Equals(Origin, Environment.ProcessPath, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>The published one-file exe. A developer build is an exe beside loose DLLs and runs where it is.</summary>
+    static bool Bundled => !File.Exists(Path.Combine(AppContext.BaseDirectory, "ReHome.dll"));
+
+    static bool InCache(string exe) => Path.GetFullPath(exe).StartsWith(Root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>True when the cached copy was started and this process should exit.</summary>
     public static bool Restart(ref string[] args)
     {
@@ -33,15 +38,17 @@ static class Portable
             var origin = args[at + 1];
             args = args[..at];
             // Only the cached copy is started with --origin. Anywhere else, the flag is ignored.
-            if (exe is not null && Path.GetFullPath(exe).StartsWith(Root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            if (exe is not null && InCache(exe))
             {
                 Origin = Path.GetFullPath(origin);
                 return false;
             }
         }
 
-        // A developer build, or a folder someone set up by hand: the winmd is already where Windows looks.
-        if (exe is null || File.Exists(Path.Combine(Path.GetDirectoryName(exe)!, Winmd)))
+        // A developer build has the winmd beside it already. The published exe always moves to the cache, even if a
+        // winmd sits next to it: that file could have been put there to keep ReHome running from a folder anyone can
+        // write to (Downloads, a FAT-formatted USB drive), and the elevated helper starts from the running exe's folder.
+        if (exe is null || (!Bundled && File.Exists(Path.Combine(Path.GetDirectoryName(exe)!, Winmd))))
             return false;
 
         try
@@ -69,12 +76,17 @@ static class Portable
     /// </summary>
     public static void CheckBeforeElevating()
     {
-        if (!Relocated || Environment.ProcessPath is not { } exe)
+        if (Environment.ProcessPath is not { } exe)
+            return;
+        // The published exe only elevates from its cache copy, a folder only this user can write to.
+        if (Bundled && !(Relocated && InCache(exe)))
+            throw new RehomeException("ReHome couldn't set up its copy in your app data folder, so it won't ask for admin rights. Close ReHome, check the drive has about 100 MB free, and start it again. Nothing was installed.");
+        if (!Relocated)
             return;
         var expected = Path.GetFileName(Path.GetDirectoryName(exe));
         using var file = File.OpenRead(exe);
         if (!string.Equals(Key(file, file.Length), expected, StringComparison.Ordinal))
-            throw new RehomeException("Rehome's copy in your app data folder changed while it was open. Close Rehome and start it again. Nothing was installed.");
+            throw new RehomeException("ReHome's copy in your app data folder changed while it was open. Close ReHome and start it again. Nothing was installed.");
     }
 
     /// <summary>The cached exe for these program bytes, written if it's missing or doesn't match.</summary>
@@ -91,7 +103,7 @@ static class Portable
         }
 
         var dir = Path.Combine(Root, key);
-        var target = Path.Combine(dir, "Rehome.exe");
+        var target = Path.Combine(dir, "ReHome.exe");
         Directory.CreateDirectory(Root);
         Sweep(keep: key);
 
@@ -103,7 +115,7 @@ static class Portable
         try
         {
             using (var source = new FileStream(exe, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete))
-            using (var copy = new FileStream(Path.Combine(staging, "Rehome.exe"), FileMode.CreateNew))
+            using (var copy = new FileStream(Path.Combine(staging, "ReHome.exe"), FileMode.CreateNew))
                 ScanInExe.CopyExactly(source, copy, program);
             using (var winmd = typeof(Portable).Assembly.GetManifestResourceStream(Winmd)
                 ?? throw new IOException("The winget metadata isn't inside this build."))
@@ -173,7 +185,7 @@ static class Portable
                 if (name.EndsWith(".tmp", StringComparison.Ordinal) && Directory.GetCreationTimeUtc(dir) > DateTime.UtcNow.AddMinutes(-5))
                     continue;
                 // A running exe can't be deleted, so this fails for a version that's still open and its winmd stays.
-                var exe = Path.Combine(dir, "Rehome.exe");
+                var exe = Path.Combine(dir, "ReHome.exe");
                 if (File.Exists(exe))
                     File.Delete(exe);
                 Directory.Delete(dir, recursive: true);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { call } from "./bridge";
 import { Footer } from "./Footer";
+import { useNotices } from "./notices";
 import { Check, Details, Disclosure, Fold, Icon, Plain, choosable, navigate, displayName, groupOf, groupTitles, hasDetails, rows, siteOf } from "./list";
 import type { App, Setting, Snapshot } from "./types";
 
@@ -16,14 +17,13 @@ export function ScanView({ menu, rescan, onBack }: { menu: React.ReactNode; resc
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [icons, setIcons] = useState<Record<string, string>>({});
   const [query, setQuery] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const { fail, notify } = useNotices();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exported, setExported] = useState<Exported | null>(null);
 
   const scan = useCallback(async () => {
     setPhase({ kind: "scanning" });
-    setError(null);
     try {
       const snapshot = await call("scan");
       // Exact matches and vendor apps start included. Guesses need a yes. Drivers and runtimes start out.
@@ -57,16 +57,15 @@ export function ScanView({ menu, rescan, onBack }: { menu: React.ReactNode; resc
   const doExport = useCallback(async () => {
     if (phase.kind !== "ready" || exporting) return;
     setExporting(true);
-    setError(null);
     try {
       const { exported: done, file } = await call("export", choices());
       if (done && file) setExported({ file });
     } catch (e) {
-      setError((e as Error).message);
+      fail(e);
     } finally {
       setExporting(false);
     }
-  }, [choices, exporting, phase.kind]);
+  }, [choices, exporting, phase.kind, fail]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -110,8 +109,10 @@ export function ScanView({ menu, rescan, onBack }: { menu: React.ReactNode; resc
           <h1>Scanning this PC…</h1>
           {menu}
         </header>
-        <div className="list" />
-        <Footer onBack={onBack} hint="Reading installed apps and matching them to winget and the Store" progress={null} />
+        <div className="list" aria-busy="true">
+          <Skeleton />
+        </div>
+        <Footer onBack={onBack} hint="Reading installed apps and matching them to winget and the Store. Nothing is changed." progress={null} />
       </main>
     );
 
@@ -124,6 +125,9 @@ export function ScanView({ menu, rescan, onBack }: { menu: React.ReactNode; resc
         </header>
         <div className="centered">
           <p className="error">{phase.message}</p>
+          <button className="ghost" onClick={() => call("showLog").catch(() => {})}>
+            Open log
+          </button>
         </div>
         <Footer onBack={onBack}>
           <button className="primary" onClick={() => void scan()}>
@@ -141,7 +145,7 @@ export function ScanView({ menu, rescan, onBack }: { menu: React.ReactNode; resc
     icons,
     expanded,
     onExpand: setExpanded,
-    onError: setError,
+    onError: fail,
     onApps: setApps,
     onSetting: (app: App, s: Setting, on: boolean) => setSkips([settingKey(app, s)], !on),
   };
@@ -155,7 +159,6 @@ export function ScanView({ menu, rescan, onBack }: { menu: React.ReactNode; resc
         <Search value={query} onChange={setQuery} />
         {menu}
       </header>
-      {error && <Banner message={error} onClose={() => setError(null)} />}
 
       <div className="list">
         {(["confirm", "apps", "store", "vendor"] as const).map((g) => (
@@ -165,12 +168,21 @@ export function ScanView({ menu, rescan, onBack }: { menu: React.ReactNode; resc
         <Fold title={groupTitles.steam} apps={group("steam")} icons={icons} />
         {visible.length === 0 && <p className="empty">No apps match “{query}”</p>}
       </div>
-      <Footer onBack={onBack} hint="Export makes one Rehome installer with these apps inside, for a USB drive.">
+      <Footer onBack={onBack} hint="Export makes one ReHome installer with these apps inside, for a USB drive.">
         <button className="primary" onClick={() => void doExport()} disabled={exporting || count === 0}>
           {exporting ? "Exporting…" : "Export for new PC"}
         </button>
       </Footer>
-      {exported && <ExportDone {...exported} onClose={() => setExported(null)} onError={setError} />}
+      {exported && (
+        <ExportDone
+          {...exported}
+          onClose={() => {
+            setExported(null);
+            notify({ level: "success", title: "Installer saved", detail: "Copy it to the new PC and open it there." });
+          }}
+          onError={fail}
+        />
+      )}
     </main>
   );
 }
@@ -197,14 +209,21 @@ export function Search({ value, onChange }: { value: string; onChange: (v: strin
   );
 }
 
-export function Banner({ message, onClose }: { message: string; onClose: () => void }) {
+/** Grey rows in the shape of the list, so the window has its layout while the scan runs. */
+function Skeleton() {
+  const widths = [46, 62, 38, 55, 70, 42, 58, 35, 66, 48];
   return (
-    <div className="banner" role="alert">
-      <span>{message}</span>
-      <button className="ghost" aria-label="Dismiss" onClick={onClose}>
-        ×
-      </button>
-    </div>
+    <section className="skeleton" aria-hidden="true">
+      <div className="row heading">
+        <span className="bone" style={{ width: 90 }} />
+      </div>
+      {widths.map((w, i) => (
+        <div className="row" key={i} style={{ animationDelay: `${i * 60}ms` }}>
+          <span className="bone icon" />
+          <span className="bone" style={{ width: `${w}%` }} />
+        </div>
+      ))}
+    </section>
   );
 }
 
@@ -217,7 +236,7 @@ interface SectionProps {
   icons: Record<string, string>;
   expanded: string | null;
   onExpand: (id: string | null) => void;
-  onError: (message: string) => void;
+  onError: (e: unknown) => void;
   onApps: (ids: string[], on: boolean) => void;
   onSetting: (app: App, setting: Setting, on: boolean) => void;
 }
@@ -322,7 +341,7 @@ export function FoldHeading({ title, count, open, onToggle }: { title: string; c
 }
 
 /** What to do with the exe Export just wrote. */
-function ExportDone({ file, onClose, onError }: Exported & { onClose: () => void; onError: (m: string) => void }) {
+function ExportDone({ file, onClose, onError }: Exported & { onClose: () => void; onError: (e: unknown) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -343,7 +362,7 @@ function ExportDone({ file, onClose, onError }: Exported & { onClose: () => void
           from it.
         </p>
         <div className="actions">
-          <button className="ghost" onClick={() => call("showExport").catch((e: Error) => onError(e.message))}>
+          <button className="ghost" onClick={() => call("showExport").catch(onError)}>
             Show in folder
           </button>
           <button className="primary" onClick={onClose}>

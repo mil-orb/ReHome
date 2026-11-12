@@ -34,7 +34,7 @@ internal static partial class ExportName
 
         var more = names.Count - shown.Count;
         var list = string.Join(' ', shown) + (more > 0 ? $" +{more} more" : "");
-        return list.Length > 0 ? $"Rehome {list} Installer.exe" : "Rehome Installer.exe";
+        return list.Length > 0 ? $"ReHome {list} Installer.exe" : "ReHome Installer.exe";
     }
 
     /// <summary>"7-Zip 19.00 (x64)" → "7-Zip", "Mullvad VPN 2025.14.0" → "Mullvad VPN". Safe in a file name.</summary>

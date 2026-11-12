@@ -2,7 +2,7 @@
 
 Guidance for coding assistants (Claude Code, Codex, Copilot, Cursor and others) working in this repository. People will find it useful too.
 
-Rehome scans a Windows PC's apps and reinstalls them on another PC from winget and the Microsoft Store only, checking every installer before it runs as admin. C# on .NET 10 for the host and logic, React 19 + Vite for the UI inside a WebView2 window.
+ReHome scans a Windows PC's apps and reinstalls them on another PC from winget and the Microsoft Store only, checking every installer before it runs as admin. C# on .NET 10 for the host and logic, React 19 + Vite for the UI inside a WebView2 window.
 
 ## Safety first
 
@@ -31,12 +31,13 @@ dotnet test Rehome.slnx                         # all tests; must pass before yo
 dotnet build Rehome.slnx                        # warnings are errors
 dotnet run --project src/Rehome -- scan         # read-only CLI scan, human output
 dotnet run --project src/Rehome -- scan -o scan.json  # sealed JSON; /scan*.json is gitignored
-dotnet publish src/Rehome.App -c Release -o out # one portable out\Rehome.exe
+dotnet publish src/Rehome.App -c Release -o out # one portable out\ReHome.exe
 
 cd src/Rehome.App/ui
 npm run typecheck
 npm run dev                                      # http://localhost:5199, simulated host
 npm run screenshots                              # rewrites docs/images/*.png
+npm run icon                                     # rebuilds Rehome.ico from assets/logo*.svg
 ```
 
 Locked restore (`dotnet restore --locked-mode`) is what CI runs. If it fails with NU1004, the SDK isn't 10.0.300; don't regenerate lock files to make it pass.

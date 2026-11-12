@@ -1,4 +1,4 @@
-# How Rehome works
+# How ReHome works
 
 What a scan picks up, what it leaves out, how a scan travels inside an exported exe, and how one exe runs anywhere. For what's checked before anything installs, see [security-model.md](security-model.md). For the code, see [architecture.md](architecture.md).
 
@@ -9,13 +9,13 @@ What a scan picks up, what it leaves out, how a scan travels inside an exported 
 | Apps | Exact winget match (winget correlated it) | Installed, latest version |
 | Microsoft Store | Exact Store match (package family) | Installed from the Store |
 | Confirm | Same name and publisher in winget, nothing exact | Only if you tick it |
-| From vendor sites | Real apps no official catalog carries (RustDesk, VMware Workstation) | Rehome opens the vendor's page; it never downloads these itself |
+| From vendor sites | Real apps no official catalog carries (RustDesk, VMware Workstation) | ReHome opens the vendor's page; it never downloads these itself |
 | Drivers and runtimes | Drivers, redistributables, runtimes, Windows parts | Unticked. Windows Update, the PC maker or the app that needs it brings these back |
 | Steam | Games owned by a launcher | Reinstall from the launcher |
 
 Left out entirely:
 
-- Apps Windows installs itself: Game Bar, Get Help, Microsoft Store, Paint, Photos, Notepad, Calculator, Edge, OneDrive and the rest. Rehome reads Windows' own list of packages it provisions for every new user (`AppxAllUserStore`, readable without admin rights) and drops the Microsoft-published ones; Edge, WebView2 and OneDrive go by winget id. A fixed list of Microsoft package names (Clock, To Do, Calculator, Camera, Snipping Tool, Terminal, Phone Link, Clipchamp and about 40 more) covers PCs where an app was removed from that provisioned list but is still installed for the user. The publisher id has to be Microsoft's, so a lookalike package with the same name stays. WSL is kept, since installing it provisions it but a fresh Windows doesn't have it. Opening a scan runs the same check against the new PC, so older scan files clean up too.
+- Apps Windows installs itself: Game Bar, Get Help, Microsoft Store, Paint, Photos, Notepad, Calculator, Edge, OneDrive and the rest. ReHome reads Windows' own list of packages it provisions for every new user (`AppxAllUserStore`, readable without admin rights) and drops the Microsoft-published ones; Edge, WebView2 and OneDrive go by winget id. A fixed list of Microsoft package names (Clock, To Do, Calculator, Camera, Snipping Tool, Terminal, Phone Link, Clipchamp and about 40 more) covers PCs where an app was removed from that provisioned list but is still installed for the user. The publisher id has to be Microsoft's, so a lookalike package with the same name stays. WSL is kept, since installing it provisions it but a fresh Windows doesn't have it. Opening a scan runs the same check against the new PC, so older scan files clean up too.
 - Shell extensions and components another app installs (`Companion`). They come back with their parent.
 - Frameworks and packages signed as part of the OS.
 
@@ -25,7 +25,7 @@ Restore installs the latest version in the catalog, not the version the old PC h
 
 ## Settings
 
-Each app in a catalog can carry settings, listed under it and ticked by default. Rehome only reads files named in `SettingsCatalog` (`src/Rehome.Core/Settings.cs`), compiled into the exe:
+Each app in a catalog can carry settings, listed under it and ticked by default. ReHome only reads files named in `SettingsCatalog` (`src/Rehome.Core/Settings.cs`), compiled into the exe:
 
 - Exact files, or `*` inside one folder level. No folders, no `**`, no links followed. OBS keeps stream keys in `service.json` and ShareX keeps OAuth tokens in `UploadersConfig.json`, right beside files worth taking, so whole folders are never copied.
 - Data only. No PowerShell profiles, scripts or anything that would run code on the new PC. VS Code extensions come back as a list of ids to install from the Marketplace.
@@ -36,29 +36,29 @@ The scan file holds file names only. Putting settings back needs the encrypted p
 
 ## Sealed scans
 
-Every scan Rehome writes (an export, or `rehome scan -o`) carries SHA-256 of its own bytes in the `check` field (computed with that field zeroed). Opening a scan recomputes it. If it doesn't match, Rehome refuses the file before anything is listed or installed: "This scan was changed or damaged after it was saved". Restore from a scan still opens `.json` files from the CLI; the app itself only exports installers. Scans from before the seal have no `check` and still open.
+Every scan ReHome writes (an export, or `rehome scan -o`) carries SHA-256 of its own bytes in the `check` field (computed with that field zeroed). Opening a scan recomputes it. If it doesn't match, ReHome refuses the file before anything is listed or installed: "This scan was changed or damaged after it was saved". Restore from a scan still opens `.json` files from the CLI; the app itself only exports installers. Scans from before the seal have no `check` and still open.
 
-An exported exe carries the same sealed bytes inside it, so the check is identical. It catches a half-copied USB drive, a bad sector, or someone editing the JSON by hand. It doesn't stop a deliberate edit that recomputes the hash, since there's no key on the new PC to check against. Nothing in the file could stop that: Rehome isn't code-signed yet, so someone who can edit the exe can also remove the check. Copying it from a drive you control is the protection there. A copy downloaded from the internet gets SmartScreen's "unrecognized app" warning; one copied from a USB drive doesn't, since it carries no Mark of the Web.
+An exported exe carries the same sealed bytes inside it, so the check is identical. It catches a half-copied USB drive, a bad sector, or someone editing the JSON by hand. It doesn't stop a deliberate edit that recomputes the hash, since there's no key on the new PC to check against. Nothing in the file could stop that: ReHome isn't code-signed yet, so someone who can edit the exe can also remove the check. Copying it from a drive you control is the protection there. A copy downloaded from the internet gets SmartScreen's "unrecognized app" warning; one copied from a USB drive doesn't, since it carries no Mark of the Web.
 
 A changed scan still can't reach past the rules in [security-model.md](security-model.md): only ids from Microsoft's two catalogs install, and every download is hash- and signer-checked on its own.
 
 ## Portable
 
-`dotnet publish src/Rehome.App -c Release` gives one self-contained `Rehome.exe` of about 59 MB.
+`dotnet publish src/Rehome.App -c Release` gives one self-contained `ReHome.exe` of about 59 MB.
 
-winget's API needs `Microsoft.Management.Deployment.winmd` (64 KB of type metadata) in the same folder as the running exe. WinRT reads it to talk to winget's out-of-process server, and for an app that isn't packaged Windows only looks beside the exe; without it every winget call fails with "Interface not registered". So the winmd is embedded in the exe, and on start, if it isn't beside it, Rehome copies its own program bytes and the winmd to `%LOCALAPPDATA%\Rehome\App\<hash>\` and restarts from there (about half a second, measured on an SSD). The cost is a hidden 59 MB copy on each PC that runs Rehome. Nothing is written next to the exe you started, so the USB drive stays one file. The folder is named by SHA-256 of the program bytes, re-checked before reuse and again right before the admin prompt; other versions in `App` are deleted on start.
+winget's API needs `Microsoft.Management.Deployment.winmd` (64 KB of type metadata) in the same folder as the running exe. WinRT reads it to talk to winget's out-of-process server, and for an app that isn't packaged Windows only looks beside the exe; without it every winget call fails with "Interface not registered". So the winmd is embedded in the exe, and on start the published exe copies its own program bytes and the winmd to `%LOCALAPPDATA%\Rehome\App\<hash>\` and restarts from there (about half a second, measured on an SSD). The cost is a hidden 59 MB copy on each PC that runs ReHome. Nothing is written next to the exe you started, so the USB drive stays one file. The folder is named by SHA-256 of the program bytes, re-checked before reuse and again right before the admin prompt; other versions in `App` are deleted on start. The published exe always makes this move, and only ever asks for admin rights from the copy, since the folder you started it from may be one anyone can write to.
 
 An exported exe is the program's bytes followed by the sealed scan, its length and an 8-byte marker. Windows and the .NET single-file host ignore bytes past the bundle, so it runs like any other copy. Two things to know:
 
 - Appending data to an exe can look odd to antivirus heuristics. Not seen here with Defender, but not tested widely either.
-- Once Rehome is code-signed, appended bytes would break the signature. The usual fix is to carry the scan inside the signature's unauthenticated attributes, the way some vendors tag signed installers. Not built yet.
+- Once ReHome is code-signed, appended bytes would break the signature. The usual fix is to carry the scan inside the signature's unauthenticated attributes, the way some vendors tag signed installers. Not built yet.
 
 Managed code runs from inside the exe. Only two native DLLs (the WebView2 loader and winget's COM factory) are unpacked to `%TEMP%\.net`. The elevated install helper loads neither, since it only starts `winget.exe`. `IncludeAllContentForSelfExtract` stays off: it would make the elevated copy load every assembly from that user-writable folder.
 
 A fresh Windows needs nothing else installed, with two exceptions it already has:
 
 - the WebView2 Runtime (ships with Windows 11 and current Windows 10)
-- App Installer (winget). On a brand-new install it can take a few minutes to register; if Rehome says winget isn't responding, update App Installer from the Store and try again.
+- App Installer (winget). On a brand-new install it can take a few minutes to register; if ReHome says winget isn't responding, update App Installer from the Store and try again.
 
 Pass a scan file as the first argument to open straight into restore. With no argument, an exported exe opens the scan inside it.
 

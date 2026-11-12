@@ -1,4 +1,4 @@
-# Building Rehome
+# Building ReHome
 
 ## Prerequisites
 
@@ -30,28 +30,29 @@ cd src/Rehome.App/ui
 npm run dev          # http://localhost:5199
 npm run typecheck
 npm run screenshots  # regenerates docs/images from the dev UI, light and dark
+npm run icon         # rebuilds src/Rehome.App/Rehome.ico and src/Rehome/Rehome.ico from assets/
 ```
 
 `npm run dev` runs without the app. `bridge.ts` notices there's no host and simulates one with `dev/fixture.json` (29 apps, real icons) and a fake install run that includes one unsigned installer to review, one restart and one failure. Nothing calls winget. The fixture isn't in production builds.
 
-`npm run screenshots` starts Vite itself and drives the Edge that ships with Windows over the DevTools protocol. No extra packages. Run it after a visible UI change and commit the PNGs with it.
+`npm run screenshots` starts Vite itself and drives the Edge that ships with Windows over the DevTools protocol (`scripts/edge.mjs`). No extra packages. `npm run icon` uses the same Edge to draw each icon size from the SVGs, so 16 px is drawn at 16 px rather than shrunk from 256. Run it after a visible UI change and commit the PNGs with it.
 
 ## Publishing
 
 ```powershell
-dotnet publish src/Rehome.App -c Release -o out   # out\Rehome.exe, ~59 MB, self-contained, one file
+dotnet publish src/Rehome.App -c Release -o out   # out\ReHome.exe, ~59 MB, self-contained, one file
 dotnet publish src/Rehome -c Release -o out-cli   # out-cli\rehome.exe
 ```
 
-Only a published `Rehome.exe` can export. A `dotnet build` output is an exe plus loose DLLs, and exporting it would produce a file that can't start, so the app refuses with a message.
+Only a published `ReHome.exe` can export. A `dotnet build` output is an exe plus loose DLLs, and exporting it would produce a file that can't start, so the app refuses with a message.
 
-Releases are built by the **release** workflow (Actions tab, Run workflow). It builds from `main`, runs the tests and leaves a draft release with `Rehome.exe` and `SHA256SUMS.txt`. Bump `<Version>` in `Directory.Build.props` first.
+Releases are built by the **release** workflow (Actions tab, Run workflow). It builds from `main`, runs the tests and leaves a draft release with `ReHome.exe` and `SHA256SUMS.txt`. Bump `<Version>` in `Directory.Build.props` first.
 
 ## Testing installs
 
 `rehome install`, `rehome verify` and the Install button download and run real installers. Use [Windows Sandbox](https://learn.microsoft.com/windows/security/application-security/application-isolation/windows-sandbox/windows-sandbox-overview) or a VM:
 
-1. Publish `Rehome.exe` and export from it on your PC (export is read-only on the old PC).
+1. Publish `ReHome.exe` and export from it on your PC (export is read-only on the old PC).
 2. Copy the exported exe into the Sandbox and open it there.
 
 Sandbox starts without winget registered. Install App Installer in it first, or use a Hyper-V VM with a normal Windows install.

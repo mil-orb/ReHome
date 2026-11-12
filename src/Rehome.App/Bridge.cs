@@ -27,7 +27,9 @@ sealed class Bridge(MainForm owner, Action<string> post)
     TaskCompletionSource<HashSet<string>>? _decision;
     readonly Dictionary<string, string> _states = [];
 
-    public async void Handle(string message)
+    /// <param name="files">Paths of files dropped on the page, read by the host from WebView2's own File objects.
+    /// Only "openDropped" uses them; the page can't name a path itself.</param>
+    public async void Handle(string message, IReadOnlyList<string>? files = null)
     {
         int id;
         string method;
@@ -55,6 +57,7 @@ sealed class Bridge(MainForm owner, Action<string> post)
                 "export" => await Export(args),
                 "showExport" => ShowExport(),
                 "open" => Open(),
+                "openDropped" => OpenDropped(files ?? []),
                 "present" => await Present(),
                 "install" => await Install(args),
                 "decide" => Decide(args),
@@ -64,7 +67,7 @@ sealed class Bridge(MainForm owner, Action<string> post)
                 "setPreferences" => SetPreferences(args),
                 "showLog" => ShowLog(),
                 "log" => LogFromPage(args),
-                _ => throw new RehomeException("Rehome doesn't know that request."),
+                _ => throw new RehomeException("ReHome doesn't know that request."),
             };
             Reply(id, result, null);
         }
@@ -96,7 +99,7 @@ sealed class Bridge(MainForm owner, Action<string> post)
             if (owner.StartFile is { } file)
             {
                 owner.StartFile = null;
-                plan = UsePlan(Plan.Load(file));
+                plan = UsePlan(Plan.Open(file));
             }
             else if (!_bootedOnce && ScanInExe.Read(Portable.Origin).Scan is { } inside)
             {
@@ -107,7 +110,7 @@ sealed class Bridge(MainForm owner, Action<string> post)
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             Log.Write(e);
-            error = "Couldn't read the scan inside this Rehome.exe. Copy it again from the old PC.";
+            error = "Couldn't read the scan inside this ReHome.exe. Copy it again from the old PC.";
         }
         _bootedOnce = true;
 
@@ -163,12 +166,12 @@ sealed class Bridge(MainForm owner, Action<string> post)
         // A developer build is an exe plus loose DLLs. Copying the exe alone would give a file that can't start.
         var looseDll = Path.Combine(AppContext.BaseDirectory, typeof(Bridge).Assembly.GetName().Name + ".dll");
         if (exe is null || File.Exists(looseDll))
-            throw new RehomeException("Export works from the published Rehome.exe. This copy is a developer build.");
+            throw new RehomeException("Export works from the published ReHome.exe. This copy is a developer build.");
 
         var chosen = WithIcons(Selection.Parse(args).Apply(snapshot));
         using var dialog = new SaveFileDialog
         {
-            Title = "Save Rehome for your new PC, for example on a USB drive",
+            Title = "Save ReHome for your new PC, for example on a USB drive",
             Filter = "Program (*.exe)|*.exe",
             DefaultExt = "exe",
             FileName = ExportName.For(Plan.Installable(chosen)),
@@ -221,7 +224,7 @@ sealed class Bridge(MainForm owner, Action<string> post)
     {
         if (_exported is not { } file || !File.Exists(file))
             throw new RehomeException("That file isn't there anymore.");
-        Process.Start(new ProcessStartInfo("explorer.exe") { UseShellExecute = false, Arguments = $"/select,\"{file}\"" })?.Dispose();
+        Process.Start(new ProcessStartInfo(Log.Explorer) { UseShellExecute = false, Arguments = $"/select,\"{file}\"" })?.Dispose();
         return "{}";
     }
 
@@ -231,13 +234,24 @@ sealed class Bridge(MainForm owner, Action<string> post)
     {
         using var dialog = new OpenFileDialog
         {
-            Filter = "Rehome scan (*.json)|*.json",
+            Filter = "ReHome installer or scan (*.exe;*.json)|*.exe;*.json",
             InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             CheckFileExists = true,
         };
         if (dialog.ShowDialog(owner) != DialogResult.OK)
             return "null";
-        return UsePlan(Plan.Load(dialog.FileName));
+        return UsePlan(Plan.Open(dialog.FileName));
+    }
+
+    /// <summary>A file dropped on the window. One file only, an exported installer or a scan; Plan.Open checks which.</summary>
+    string OpenDropped(IReadOnlyList<string> files)
+    {
+        if (files.Count != 1)
+            throw new RehomeException(files.Count == 0
+                ? "Drop the ReHome installer you exported on the old PC."
+                : "Drop one file at a time.");
+        Log.Write($"opened by drop: {Path.GetFileName(files[0])}");
+        return UsePlan(Plan.Open(files[0]));
     }
 
     string UsePlan(Snapshot plan)
@@ -401,7 +415,7 @@ sealed class Bridge(MainForm owner, Action<string> post)
             lock (_states) _states[localId] = state;
             // One line per outcome, so "View log" answers what happened to each app. No progress ticks.
             if (state is "installed" or "present" or "restart" or "failed" or "skipped")
-                Log.Write($"restore {state,-9} {localId}{(e.Message is { } m ? "  " + m : "")}");
+                Log.Write($"restore {state,-9} {Log.Field(localId)}{(e.Message is { } m ? "  " + Log.Field(m) : "")}");
         }
 
         PostEvent("run", w =>
@@ -485,7 +499,7 @@ sealed class Bridge(MainForm owner, Action<string> post)
         Directory.CreateDirectory(folder);
         // Explorer parses /select itself and wants the path quoted after the comma, not the whole argument quoted.
         // Both paths are Rehome's own, never from a page or a file.
-        var start = new ProcessStartInfo("explorer.exe")
+        var start = new ProcessStartInfo(Log.Explorer)
         {
             UseShellExecute = false,
             Arguments = File.Exists(Log.FilePath) ? $"/select,\"{Log.FilePath}\"" : $"\"{folder}\"",
@@ -498,7 +512,8 @@ sealed class Bridge(MainForm owner, Action<string> post)
     static string LogFromPage(JsonElement args)
     {
         if (args.ValueKind == JsonValueKind.Object && args.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String)
-            Log.Write("page: " + new string(m.GetString()!.Take(2000).Where(c => !char.IsControl(c) || c == '\n').ToArray()));
+            // Continuation lines are indented, so nothing the page sends can pass for a log line of its own.
+            Log.Write("page: " + new string(m.GetString()!.Take(2000).Where(c => !char.IsControl(c) || c == '\n').ToArray()).Replace("\n", "\n    "));
         return "{}";
     }
 
@@ -584,6 +599,16 @@ static class Log
     const long MaxBytes = 1 << 20;
 
     public static void Write(Exception e) => Write(e.ToString());
+
+    /// <summary>A value from a scan or from winget, kept to one line: control characters become spaces.</summary>
+    public static string Field(string value) => string.Create(value.Length, value, (span, v) =>
+    {
+        for (var i = 0; i < v.Length; i++)
+            span[i] = char.IsControl(v[i]) ? ' ' : v[i];
+    });
+
+    /// <summary>Explorer by full path. A bare name is looked up beside ReHome.exe first.</summary>
+    public static readonly string Explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
 
     static readonly Lock Gate = new();
 

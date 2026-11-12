@@ -1,6 +1,7 @@
 name: release
 
-# Started by hand. Builds from the tagged commit and leaves a draft release to review before publishing.
+# Started by hand from main. Builds, tests and leaves a draft release to review before publishing.
+# The build runs with read-only access; only the last job, which runs gh and nothing from npm, can write.
 on:
   workflow_dispatch:
 
@@ -8,11 +9,12 @@ permissions:
   contents: read
 
 jobs:
-  release:
+  build:
+    if: github.ref == 'refs/heads/main'
     runs-on: windows-2025
     timeout-minutes: 30
-    permissions:
-      contents: write # create the draft release
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -49,12 +51,34 @@ jobs:
       - name: Checksum
         shell: pwsh
         run: |
-          $hash = (Get-FileHash out/Rehome.exe -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  Rehome.exe" | Set-Content -NoNewline out/SHA256SUMS.txt
+          $hash = (Get-FileHash out/ReHome.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  ReHome.exe" | Set-Content -NoNewline out/SHA256SUMS.txt
 
       # The exe isn't code-signed yet. Signing goes here, before the checksum, once there's a certificate.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: |
+            out/ReHome.exe
+            out/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # create the draft release
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: out
+
       - name: Draft release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: gh release create "v$env:VERSION" out/Rehome.exe out/SHA256SUMS.txt --draft --generate-notes --title "Rehome $env:VERSION" --target "$env:GITHUB_SHA"
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: gh release create "v$VERSION" out/ReHome.exe out/SHA256SUMS.txt --draft --generate-notes --title "ReHome $VERSION" --target "$GITHUB_SHA"
