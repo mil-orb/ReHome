@@ -2,9 +2,9 @@
 
 Notable changes, newest first. Versions follow `<Version>` in `Directory.Build.props`.
 
-## Unreleased (0.1.0)
+## 0.1.0 (2026-11-11)
 
-First version.
+First release, under the MIT license.
 
 - Scan an old PC's apps and match each to its exact winget or Microsoft Store package. Drivers, runtimes, launcher games and apps Windows ships with are sorted out of the way.
 - Export one portable `ReHome … Installer.exe` with the scan sealed inside (SHA-256), named after the apps it carries.

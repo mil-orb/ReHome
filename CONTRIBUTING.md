@@ -59,6 +59,9 @@ The PR description's "Why" should be yours. An assistant can draft the rest.
 
 ## Pull requests
 
+ReHome is MIT licensed, and anything you contribute is under the same license.
+
+
 CI runs the UI typecheck, a locked restore, all tests and a publish on `windows-2025`. The built `ReHome.exe` is attached to the run for 14 days so a reviewer can try it in a VM.
 
 ## Releases

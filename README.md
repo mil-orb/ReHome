@@ -12,6 +12,8 @@ Every app comes from winget or the Microsoft Store, and every installer is check
 [![ci](https://github.com/mil-orb/ReHome/actions/workflows/ci.yml/badge.svg)](https://github.com/mil-orb/ReHome/actions/workflows/ci.yml)
 ![Windows 10 2004+ and 11](https://img.shields.io/badge/Windows-10%202004%2B%20%7C%2011-0078D4)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)
+[![Latest release](https://img.shields.io/github/v/release/mil-orb/ReHome)](https://github.com/mil-orb/ReHome/releases/latest)
+[![MIT license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/start-dark.png">
@@ -88,7 +90,15 @@ The full list of checks, and the gaps that are still open, is in [docs/security-
 
 ## Get it
 
-ReHome isn't published yet. Until the first release, build it:
+Download `ReHome.exe` from the [latest release](https://github.com/mil-orb/ReHome/releases/latest). It's one portable file with nothing to install. To check the download against the release's `SHA256SUMS.txt`:
+
+```powershell
+(Get-FileHash .\ReHome.exe -Algorithm SHA256).Hash
+```
+
+The exe isn't code-signed yet, so Windows SmartScreen shows "Windows protected your PC" the first time. Choose **More info**, then **Run anyway**. The installer you export for your new PC doesn't get the warning, since it's written on your own PC.
+
+To build it yourself instead:
 
 ```powershell
 git clone https://github.com/mil-orb/ReHome
@@ -97,14 +107,6 @@ dotnet publish src/Rehome.App -c Release -o out   # out\ReHome.exe
 ```
 
 Needs the .NET 10 SDK (10.0.300) and Node 22+. Full setup in [BUILD.md](BUILD.md).
-
-Releases will carry `ReHome.exe` and `SHA256SUMS.txt`. To check a download:
-
-```powershell
-(Get-FileHash .\ReHome.exe -Algorithm SHA256).Hash   # compare with SHA256SUMS.txt
-```
-
-The exe isn't code-signed yet, so Windows SmartScreen shows "Windows protected your PC" for a downloaded copy. A copy carried over on a USB drive doesn't get the warning.
 
 **On the new PC** ReHome needs the WebView2 Runtime (in Windows 11 and current Windows 10) and App Installer, which provides winget. Both come with Windows.
 
@@ -149,3 +151,7 @@ Piped output is JSON lines; the human summary goes to stderr. Exit codes: `0` al
 - [Building](BUILD.md) and [contributing](CONTRIBUTING.md)
 - [AGENTS.md](AGENTS.md) for coding assistants working in this repo
 - [Reporting a security problem](SECURITY.md)
+
+## License
+
+[MIT](LICENSE). Use and change it however you like, as long as the copyright notice stays with it.
