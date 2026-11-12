@@ -9,6 +9,10 @@
 Scan the old PC, carry one exe over on a USB drive, press Install.<br>
 Every app comes from winget or the Microsoft Store, and every installer is checked before it runs.
 
+[![Download ReHome.exe](https://img.shields.io/badge/Download-ReHome.exe-5850d8?style=for-the-badge)](https://github.com/mil-orb/ReHome/releases/latest/download/ReHome.exe)
+
+Portable app: one exe, nothing to install. Windows 10 2004+ or 11, x64. [Release notes](https://github.com/mil-orb/ReHome/releases/latest)
+
 [![ci](https://github.com/mil-orb/ReHome/actions/workflows/ci.yml/badge.svg)](https://github.com/mil-orb/ReHome/actions/workflows/ci.yml)
 ![Windows 10 2004+ and 11](https://img.shields.io/badge/Windows-10%202004%2B%20%7C%2011-0078D4)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)
@@ -88,27 +92,31 @@ An unsigned installer, or one signed by a different company than before, stops a
 
 The full list of checks, and the gaps that are still open, is in [docs/security-model.md](docs/security-model.md).
 
-## Get it
+## Download and run
 
-Download `ReHome.exe` from the [latest release](https://github.com/mil-orb/ReHome/releases/latest). It's one portable file with nothing to install. To check the download against the release's `SHA256SUMS.txt`:
+ReHome is portable. It's a single `ReHome.exe` with no installer, and it doesn't add itself to the Start menu or to Installed apps. Run it from Downloads, the desktop or a USB drive.
+
+1. Download **[ReHome.exe](https://github.com/mil-orb/ReHome/releases/latest/download/ReHome.exe)** from the [latest release](https://github.com/mil-orb/ReHome/releases/latest) (about 59 MB).
+2. Double-click it. The exe isn't code-signed yet, so the first time Windows shows "Windows protected your PC". Choose **More info**, then **Run anyway**.
+3. On the old PC, press **Scan this PC** and export. On the new PC, open the installer you exported (it doesn't get the SmartScreen prompt, since it was written on your own PC).
+
+The new PC needs nothing extra. ReHome uses the WebView2 Runtime and App Installer (winget), and both come with Windows 11 and current Windows 10.
+
+**Check the download (optional).** Compare this with `SHA256SUMS.txt` on the release page:
 
 ```powershell
 (Get-FileHash .\ReHome.exe -Algorithm SHA256).Hash
 ```
 
-The exe isn't code-signed yet, so Windows SmartScreen shows "Windows protected your PC" the first time. Choose **More info**, then **Run anyway**. The installer you export for your new PC doesn't get the warning, since it's written on your own PC.
+**Remove it.** Delete `ReHome.exe` and the `%LOCALAPPDATA%\Rehome` folder, which holds its working copy, preferences and log, and the folder named after the exe in `%TEMP%\.net`, where .NET unpacks two small native libraries. It writes nothing to the registry. Apps it installed stay installed.
 
-To build it yourself instead:
+**Build it yourself** instead with the .NET 10 SDK (10.0.300) and Node 22+ ([BUILD.md](BUILD.md) has the full setup):
 
 ```powershell
 git clone https://github.com/mil-orb/ReHome
 cd ReHome
 dotnet publish src/Rehome.App -c Release -o out   # out\ReHome.exe
 ```
-
-Needs the .NET 10 SDK (10.0.300) and Node 22+. Full setup in [BUILD.md](BUILD.md).
-
-**On the new PC** ReHome needs the WebView2 Runtime (in Windows 11 and current Windows 10) and App Installer, which provides winget. Both come with Windows.
 
 ## Command line
 
