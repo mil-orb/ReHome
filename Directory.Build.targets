@@ -1,0 +1,18 @@
+<Project>
+
+  <!--
+    The .NET runtime inside the two self-contained exes (ReHome.exe and rehome.exe). SDK 10.0.300 would use 10.0.8,
+    which has CVE-2026-111497; 10.0.14 is the first release with the fix. Raise this with each .NET security
+    release, until the SDK in global.json ships a newer runtime of its own. The tests run on the installed runtime.
+  -->
+  <PropertyGroup>
+    <RehomeRuntimeVersion>10.0.14</RehomeRuntimeVersion>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(SelfContained)' == 'true'">
+    <KnownFrameworkReference Update="Microsoft.NETCore.App" LatestRuntimeFrameworkVersion="$(RehomeRuntimeVersion)" />
+    <KnownRuntimePack Update="Microsoft.NETCore.App" LatestRuntimeFrameworkVersion="$(RehomeRuntimeVersion)" />
+    <KnownILCompilerPack Update="Microsoft.DotNet.ILCompiler" ILCompilerPackVersion="$(RehomeRuntimeVersion)" />
+  </ItemGroup>
+
+</Project>

@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Rehome.Restore;
 using Rehome.Scan;
+using Rehome.Shell.Native;
 
 namespace Rehome.Shell;
 
@@ -12,7 +13,7 @@ namespace Rehome.Shell;
 /// reaches a shell, a path or a URL. The page refers to apps by id, and the host acts on its own copy of the
 /// scan or plan. Long-running work reports progress as pushed events (messages with no id).
 /// </summary>
-sealed class Bridge(MainForm owner, Action<string> post)
+sealed class Bridge(Window owner, Action<string> post)
 {
     Snapshot? _snapshot;
     Task<Snapshot>? _scanning;
@@ -169,19 +170,15 @@ sealed class Bridge(MainForm owner, Action<string> post)
             throw new RehomeException("Export works from the published ReHome.exe. This copy is a developer build.");
 
         var chosen = WithIcons(Selection.Parse(args).Apply(snapshot));
-        using var dialog = new SaveFileDialog
-        {
-            Title = "Save ReHome for your new PC, for example on a USB drive",
-            Filter = "Program (*.exe)|*.exe",
-            DefaultExt = "exe",
-            FileName = ExportName.For(Plan.Installable(chosen)),
-            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            OverwritePrompt = true,
-        };
-        if (dialog.ShowDialog(owner) != DialogResult.OK)
+        var to = Dialogs.Save(owner.Handle,
+            title: "Save ReHome for your new PC, for example on a USB drive",
+            filter: "Program (*.exe)|*.exe",
+            defaultExtension: "exe",
+            fileName: ExportName.For(Plan.Installable(chosen)),
+            initialDir: Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+        if (to is null)
             return """{"exported":false}""";
 
-        var to = dialog.FileName;
         var scan = ScanSeal.Seal(chosen);
         var staging = to + ".part";
         try
@@ -202,7 +199,7 @@ sealed class Bridge(MainForm owner, Action<string> post)
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             Log.Write(e);
-            throw new RehomeException("Couldn't write there. Pick another place, and check it has about 60 MB free.");
+            throw new RehomeException("Couldn't write there. Pick another place, and check it has about 10 MB free.");
         }
         finally
         {
@@ -232,15 +229,10 @@ sealed class Bridge(MainForm owner, Action<string> post)
 
     string Open()
     {
-        using var dialog = new OpenFileDialog
-        {
-            Filter = "ReHome installer or scan (*.exe;*.json)|*.exe;*.json",
-            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            CheckFileExists = true,
-        };
-        if (dialog.ShowDialog(owner) != DialogResult.OK)
-            return "null";
-        return UsePlan(Plan.Open(dialog.FileName));
+        var file = Dialogs.Open(owner.Handle,
+            filter: "ReHome installer or scan (*.exe;*.json)|*.exe;*.json",
+            initialDir: Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+        return file is null ? "null" : UsePlan(Plan.Open(file));
     }
 
     /// <summary>A file dropped on the window. One file only, an exported installer or a scan; Plan.Open checks which.</summary>
@@ -564,17 +556,15 @@ sealed class Bridge(MainForm owner, Action<string> post)
             }
         }
 
-        try
+        // A window that's gone drops the message. Posting can't throw.
+        if (owner.OnUiThread)
         {
-            if (owner.IsDisposed || owner.Disposing) return;
-            if (owner.InvokeRequired)
-                owner.BeginInvoke(Deliver);
-            else
+            if (owner.Alive)
                 Deliver();
         }
-        catch (Exception e) when (e is InvalidOperationException or ObjectDisposedException)
+        else
         {
-            // The window went away between the check and the call.
+            owner.Post(Deliver);
         }
     }
 

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -6,24 +6,29 @@
     <ApplicationIcon>Rehome.ico</ApplicationIcon>
     <RootNamespace>Rehome</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Native code, no .NET runtime to unpack, and nothing an environment variable can load into it when elevated. -->
+    <PublishAot>true</PublishAot>
+    <OptimizationPreference>Size</OptimizationPreference>
     <SelfContained>true</SelfContained>
-    <PublishSingleFile>true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsPackageManager.ComInterop" Version="$(WingetInteropVersion)" />
     <ProjectReference Include="..\Rehome.Core\Rehome.Core.csproj" />
+    <!-- Imports resolve from System32 only, never from the folder rehome.exe sits in. -->
+    <LinkerArg Include="/DEPENDENTLOADFLAG:0x800" />
   </ItemGroup>
 
   <!--
-    winget's interop files have to sit next to the exe. Inside a single-file bundle, WinRT can't find the activation
-    factory and falls back to packaged activation, which fails with 0x80073D54 (no package identity). The desktop
-    app solves this by relocating itself (Portable.cs); the CLI ships them beside rehome.exe instead.
+    winget's metadata and native factory have to sit next to rehome.exe: for an app that isn't packaged, that's the
+    only place Windows looks. The desktop app relocates itself to get them there (Portable.cs); the CLI ships them
+    beside rehome.exe instead.
   -->
-  <Target Name="KeepWingetInteropBesideExe" AfterTargets="ComputeResolvedFilesToPublishList">
+  <Target Name="KeepWingetFilesBesideExe" AfterTargets="ComputeResolvedFilesToPublishList">
     <ItemGroup>
-      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)" Condition="$([System.String]::Copy('%(Filename)').StartsWith('Microsoft.Management.Deployment'))" ExcludeFromSingleFile="true" />
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'Microsoft.Management.Deployment.winmd'" />
+      <ResolvedFileToPublish Include="@(ReferenceCopyLocalPaths)" Condition="'%(Filename)%(Extension)' == 'Microsoft.Management.Deployment.winmd'"
+        RelativePath="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
   </Target>
 

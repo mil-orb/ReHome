@@ -50,6 +50,7 @@ Read [docs/architecture.md](docs/architecture.md) for the full file map, the bri
 - `src/Rehome.Core/Restore/Plan.cs`: the single entry for scan files. Everything from a scan is untrusted until it passes here.
 - `src/Rehome.App/Bridge.cs`: every message the page can send. `ui/src/bridge.ts` mirrors it and simulates it for dev.
 - `src/Rehome.App/Elevated.cs`: the elevated helper and its pipe. Treat changes here as security changes.
+- `src/Rehome.App/Native/`: Win32 and WebView2 COM bindings. Methods sit in vtable order from `WebView2.idl`; one out of place calls the wrong function. Both exes publish with NativeAOT, so no reflection-based JSON, no built-in COM interop.
 - `src/Rehome/`: the CLI, argument parsing only.
 
 ## Rules
@@ -72,7 +73,7 @@ These hold everywhere. A change that breaks one won't be merged.
 
 **Change how an app is grouped.** `Resolver.cs` decides the group; `Categories.cs` decides drivers, runtimes and Windows parts. Both are pure: add an `[InlineData]` case to `ResolverTests` or `ScanTests` first, watch it fail, then change the rule.
 
-**Change user-facing text.** Messages tell the person what to do next in plain words: "Couldn't write there. Pick another place, and check it has about 60 MB free." No error codes, no stack traces, no em dashes. winget failures map to text in `Restore/Errors.cs`.
+**Change user-facing text.** Messages tell the person what to do next in plain words: "Couldn't write there. Pick another place, and check it has about 10 MB free." No error codes, no stack traces, no em dashes. winget failures map to text in `Restore/Errors.cs`.
 
 **Change the UI.** Check it in `npm run dev` at 600×520 (the window's minimum) and 760×820 (its default), light and dark. If it changes what a screenshot shows, run `npm run screenshots` and commit the images.
 

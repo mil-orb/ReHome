@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
-using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Rehome.Scan;
+using Rehome.Shell.Native;
 
 namespace Rehome.Shell;
 
@@ -56,14 +56,7 @@ static class AppIcons
         if (path is null || !File.Exists(path))
             return null;
 
-        using var icon = Icon.ExtractIcon(path, index, Size);
-        if (icon is null)
-            return null;
-
-        using var bitmap = icon.ToBitmap();
-        using var stream = new MemoryStream();
-        bitmap.Save(stream, ImageFormat.Png);
-        return stream.ToArray();
+        return IconPng.FromFile(path, index, Size);
     }
 
     static byte[]? FromPackage(Windows.Management.Deployment.PackageManager packages, string fullName)

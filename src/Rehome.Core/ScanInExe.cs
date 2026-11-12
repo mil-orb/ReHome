@@ -4,7 +4,7 @@ namespace Rehome;
 
 /// <summary>
 /// An exported Rehome.exe carries its scan after the end of the program: [scan bytes][length, 8 bytes][magic, 8 bytes].
-/// Windows and the .NET single-file host ignore bytes past the bundle, so the exe still runs, and the scan inside goes
+/// Windows ignores bytes past the end of the program image, so the exe still runs, and the scan inside goes
 /// through the same checks as a scan opened from a file.
 /// </summary>
 internal static class ScanInExe

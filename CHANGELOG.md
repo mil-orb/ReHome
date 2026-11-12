@@ -2,6 +2,11 @@
 
 Notable changes, newest first. Versions follow `<Version>` in `Directory.Build.props`.
 
+## Unreleased
+
+- `ReHome.exe` is about 8 MB, down from 59 MB, and so is every exported installer. It's compiled to native code with NativeAOT, and the window is plain Win32 hosting WebView2 instead of Windows Forms. `rehome.exe` is about 7 MB, down from 101 MB.
+- Security: the .NET runtime inside both exes moves from 10.0.8 to 10.0.14, which fixes CVE-2026-111497. No `DOTNET_` or `CORECLR_` environment variable can load code into the elevated install helper anymore (no profiler API, diagnostics port or startup hooks in a native build). DLLs load from System32 only. Nothing is unpacked to `%TEMP%\.net`.
+
 ## 0.1.0 (2026-11-11)
 
 First release, under the MIT license.

@@ -1,4 +1,5 @@
-using Microsoft.Web.WebView2.Core;
+using System.Runtime.InteropServices;
+using Rehome.Shell.Native;
 
 namespace Rehome.Shell;
 
@@ -20,16 +21,13 @@ static class Assets
         [".woff2"] = "font/woff2",
     };
 
-    public static CoreWebView2WebResourceResponse Serve(CoreWebView2Environment env, string uri, string origin)
+    internal static ICoreWebView2WebResourceResponse Serve(ICoreWebView2Environment env, string uri)
     {
         var path = new Uri(uri).AbsolutePath.TrimStart('/');
-        var stream = typeof(Assets).Assembly.GetManifestResourceStream("ui/" + path);
+        using var resource = typeof(Assets).Assembly.GetManifestResourceStream("ui/" + path);
 
-        if (stream is null || !Types.TryGetValue(Path.GetExtension(path), out var type))
-        {
-            stream?.Dispose();
-            return env.CreateWebResourceResponse(null, 404, "Not Found", "");
-        }
+        if (resource is null || !Types.TryGetValue(Path.GetExtension(path), out var type))
+            return env.CreateWebResourceResponse(0, 404, "Not Found", "");
 
         var headers =
             $"Content-Type: {type}\r\n" +
@@ -37,6 +35,26 @@ static class Assets
             "X-Content-Type-Options: nosniff\r\n" +
             "Cache-Control: no-store";
 
-        return env.CreateWebResourceResponse(stream, 200, "OK", headers);
+        var stream = Content(resource);
+        try
+        {
+            return env.CreateWebResourceResponse(stream, 200, "OK", headers);
+        }
+        finally
+        {
+            Marshal.Release(stream);
+        }
+    }
+
+    /// <summary>The bytes as a COM stream for WebView2. SHCreateMemStream keeps its own copy.</summary>
+    static unsafe nint Content(Stream resource)
+    {
+        var bytes = new byte[resource.Length];
+        resource.ReadExactly(bytes);
+        fixed (byte* p = bytes)
+        {
+            var stream = Win32.SHCreateMemStream(p, (uint)bytes.Length);
+            return stream != 0 ? stream : throw new OutOfMemoryException();
+        }
     }
 }

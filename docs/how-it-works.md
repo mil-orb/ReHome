@@ -44,16 +44,16 @@ A changed scan still can't reach past the rules in [security-model.md](security-
 
 ## Portable
 
-`dotnet publish src/Rehome.App -c Release` gives one self-contained `ReHome.exe` of about 59 MB.
+`dotnet publish src/Rehome.App -c Release` gives one `ReHome.exe` of about 8 MB. It's compiled to native code with NativeAOT, so there's no .NET runtime to install or unpack, and the window is plain Win32 hosting WebView2.
 
-winget's API needs `Microsoft.Management.Deployment.winmd` (64 KB of type metadata) in the same folder as the running exe. WinRT reads it to talk to winget's out-of-process server, and for an app that isn't packaged Windows only looks beside the exe; without it every winget call fails with "Interface not registered". So the winmd is embedded in the exe, and on start the published exe copies its own program bytes and the winmd to `%LOCALAPPDATA%\Rehome\App\<hash>\` and restarts from there (about half a second, measured on an SSD). The cost is a hidden 59 MB copy on each PC that runs ReHome. Nothing is written next to the exe you started, so the USB drive stays one file. The folder is named by SHA-256 of the program bytes, re-checked before reuse and again right before the admin prompt; other versions in `App` are deleted on start. The published exe always makes this move, and only ever asks for admin rights from the copy, since the folder you started it from may be one anyone can write to.
+winget's API needs two files in the same folder as the running exe: `Microsoft.Management.Deployment.winmd` (64 KB of type metadata, which WinRT reads to talk to winget's out-of-process server) and `Microsoft.Management.Deployment.dll` (winget's 130 KB native factory). For an app that isn't packaged Windows only looks beside the exe; without them every winget call fails with "Interface not registered" or "Class not registered". So both are embedded in the exe, and on start the published exe copies its own program bytes and the two files to `%LOCALAPPDATA%\Rehome\App\<hash>\` and restarts from there. The cost is a hidden 8 MB copy on each PC that runs ReHome. Nothing is written next to the exe you started, so the USB drive stays one file. The folder is named by SHA-256 of the program bytes, re-checked before reuse and again right before the admin prompt; other versions in `App` are deleted on start. The published exe always makes this move, and only ever asks for admin rights from the copy, since the folder you started it from may be one anyone can write to.
 
-An exported exe is the program's bytes followed by the sealed scan, its length and an 8-byte marker. Windows and the .NET single-file host ignore bytes past the bundle, so it runs like any other copy. Two things to know:
+An exported exe is the program's bytes followed by the sealed scan, its length and an 8-byte marker. Windows ignores bytes past the end of the program image, so it runs like any other copy. Two things to know:
 
 - Appending data to an exe can look odd to antivirus heuristics. Not seen here with Defender, but not tested widely either.
 - Once ReHome is code-signed, appended bytes would break the signature. The usual fix is to carry the scan inside the signature's unauthenticated attributes, the way some vendors tag signed installers. Not built yet.
 
-Managed code runs from inside the exe. Only two native DLLs (the WebView2 loader and winget's COM factory) are unpacked to `%TEMP%\.net`. The elevated install helper loads neither, since it only starts `winget.exe`. `IncludeAllContentForSelfExtract` stays off: it would make the elevated copy load every assembly from that user-writable folder.
+Nothing is unpacked anywhere else. The WebView2 loader is linked into the exe from the package's static library. The exe's own imports resolve from System32 only (`/DEPENDENTLOADFLAG`), so a DLL dropped beside the cached copy isn't picked up at start. The elevated install helper also limits DLLs it loads by name to System32 and never loads winget's factory, since it only starts `winget.exe`.
 
 A fresh Windows needs nothing else installed, with two exceptions it already has:
 

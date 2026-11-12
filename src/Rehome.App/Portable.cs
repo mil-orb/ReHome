@@ -5,15 +5,17 @@ using System.Security.Cryptography;
 namespace Rehome.Shell;
 
 /// <summary>
-/// Rehome ships as one exe. winget's API needs Microsoft.Management.Deployment.winmd in the same folder as the
-/// running exe (for an app that isn't packaged, that's the only place Windows looks), so when it isn't there Rehome
-/// copies its own program bytes and the winmd it carries into %LOCALAPPDATA%\Rehome\App\&lt;hash&gt; and restarts from
-/// there. Nothing is written next to the exe the person started, so a USB drive stays one file.
+/// Rehome ships as one exe. winget's API needs Microsoft.Management.Deployment.winmd and its small native factory,
+/// Microsoft.Management.Deployment.dll, in the same folder as the running exe (for an app that isn't packaged,
+/// that's the only place Windows looks). So when they aren't there Rehome copies its own program bytes and the two
+/// files it carries into %LOCALAPPDATA%\Rehome\App\&lt;hash&gt; and restarts from there. Nothing is written next to
+/// the exe the person started, so a USB drive stays one file.
 /// </summary>
 static class Portable
 {
     const string OriginFlag = "--origin";
     const string Winmd = "Microsoft.Management.Deployment.winmd";
+    static readonly string[] Carried = [Winmd, "Microsoft.Management.Deployment.dll"];
 
     static readonly string Root = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Rehome", "App");
@@ -107,7 +109,7 @@ static class Portable
         Directory.CreateDirectory(Root);
         Sweep(keep: key);
 
-        if (Matches(target, key) && File.Exists(Path.Combine(dir, Winmd)))
+        if (Matches(target, key) && Carried.All(name => File.Exists(Path.Combine(dir, name))))
             return target;
 
         var staging = Path.Combine(Root, $"{key}.{Guid.NewGuid():N}.tmp");
@@ -117,10 +119,13 @@ static class Portable
             using (var source = new FileStream(exe, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete))
             using (var copy = new FileStream(Path.Combine(staging, "ReHome.exe"), FileMode.CreateNew))
                 ScanInExe.CopyExactly(source, copy, program);
-            using (var winmd = typeof(Portable).Assembly.GetManifestResourceStream(Winmd)
-                ?? throw new IOException("The winget metadata isn't inside this build."))
-            using (var copy = new FileStream(Path.Combine(staging, Winmd), FileMode.CreateNew))
-                winmd.CopyTo(copy);
+            foreach (var name in Carried)
+            {
+                using var carried = typeof(Portable).Assembly.GetManifestResourceStream(name)
+                    ?? throw new IOException($"{name} isn't inside this build.");
+                using var copy = new FileStream(Path.Combine(staging, name), FileMode.CreateNew);
+                carried.CopyTo(copy);
+            }
 
             if (Directory.Exists(dir))
                 Directory.Delete(dir, recursive: true);
@@ -184,7 +189,7 @@ static class Portable
                 // Another window may be copying into this right now.
                 if (name.EndsWith(".tmp", StringComparison.Ordinal) && Directory.GetCreationTimeUtc(dir) > DateTime.UtcNow.AddMinutes(-5))
                     continue;
-                // A running exe can't be deleted, so this fails for a version that's still open and its winmd stays.
+                // A running exe can't be deleted, so this fails for a version that's still open and its files stay.
                 var exe = Path.Combine(dir, "ReHome.exe");
                 if (File.Exists(exe))
                     File.Delete(exe);

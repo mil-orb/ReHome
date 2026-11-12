@@ -22,7 +22,7 @@ flowchart LR
 |---|---|---|
 | `src/Rehome.Core` | Scanning, matching, scan format, restore planning, verification, install runner. No UI. | winget COM interop (`Microsoft.WindowsPackageManager.ComInterop`) |
 | `src/Rehome` | `rehome.exe`, the CLI. Argument parsing and printing only. | Core |
-| `src/Rehome.App` | `ReHome.exe`, the desktop app: a WinForms window hosting WebView2, a message bridge, the elevated helper, portable start. | Core, WebView2 |
+| `src/Rehome.App` | `ReHome.exe`, the desktop app: a Win32 window hosting WebView2, a message bridge, the elevated helper, portable start. Published with NativeAOT. | Core, WebView2 (its loader only, linked in) |
 | `src/Rehome.App/ui` | React 19 + Vite UI, compiled into the exe as embedded resources. | npm, pinned and locked |
 | `tests/Rehome.Tests` | xUnit tests for Core. No winget calls, no registry writes, no network. | Core |
 
@@ -51,7 +51,12 @@ src/Rehome.Core/
 src/Rehome.App/
   Program.cs          Entry: elevated helper, portable restart, crash handlers, window
   Portable.cs         Relocation to %LOCALAPPDATA%\Rehome\App\<hash>\ so winget's winmd sits beside the exe; the only place it elevates from
-  MainForm.cs         The window. WebView2 locked to https://app.rehome.internal/ served from resources
+  Window.cs           The window and its message loop. WebView2 locked to https://app.rehome.internal/ served from resources
+  Native/WebView2.cs  WebView2's COM interfaces, source-generated. Slot order follows WebView2.idl
+  Native/Win32.cs     Window, message and DPI calls
+  Native/Dialogs.cs   Open and Save dialogs, message boxes
+  Native/IconPng.cs   An icon from a file as PNG bytes
+  app.manifest        Per-monitor DPI, current-style controls, runs as the invoker
   Bridge.cs           Every message the page can send, and the log
   Elevated.cs         Both ends of the named pipe to the elevated helper
   AppIcons.cs         Icons from installed files, as PNG data URIs

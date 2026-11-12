@@ -51,7 +51,7 @@ ReHome lists what's installed and matches each app to its exact winget or Store 
 
 **2. Export one exe**
 
-**Export for new PC** writes a single `ReHome 7-Zip Blender Docker Desktop Git +13 more Installer.exe` with your list sealed inside. About 59 MB. Copy it to a USB drive.
+**Export for new PC** writes a single `ReHome 7-Zip Blender Docker Desktop Git +13 more Installer.exe` with your list sealed inside. About 8 MB. Copy it to a USB drive.
 
 </td>
 <td width="33%" valign="top">
@@ -96,7 +96,7 @@ The full list of checks, and the gaps that are still open, is in [docs/security-
 
 ReHome is portable. It's a single `ReHome.exe` with no installer, and it doesn't add itself to the Start menu or to Installed apps. Run it from Downloads, the desktop or a USB drive.
 
-1. Download **[ReHome.exe](https://github.com/mil-orb/ReHome/releases/latest/download/ReHome.exe)** from the [latest release](https://github.com/mil-orb/ReHome/releases/latest) (about 59 MB).
+1. Download **[ReHome.exe](https://github.com/mil-orb/ReHome/releases/latest/download/ReHome.exe)** from the [latest release](https://github.com/mil-orb/ReHome/releases/latest) (about 8 MB).
 2. Double-click it. The exe isn't code-signed yet, so the first time Windows shows "Windows protected your PC". Choose **More info**, then **Run anyway**.
 3. On the old PC, press **Scan this PC** and export. On the new PC, open the installer you exported (it doesn't get the SmartScreen prompt, since it was written on your own PC).
 
@@ -108,9 +108,9 @@ The new PC needs nothing extra. ReHome uses the WebView2 Runtime and App Install
 (Get-FileHash .\ReHome.exe -Algorithm SHA256).Hash
 ```
 
-**Remove it.** Delete `ReHome.exe` and the `%LOCALAPPDATA%\Rehome` folder, which holds its working copy, preferences and log, and the folder named after the exe in `%TEMP%\.net`, where .NET unpacks two small native libraries. It writes nothing to the registry. Apps it installed stay installed.
+**Remove it.** Delete `ReHome.exe` and the `%LOCALAPPDATA%\Rehome` folder, which holds its working copy, preferences and log. It writes nothing to the registry. Apps it installed stay installed.
 
-**Build it yourself** instead with the .NET 10 SDK (10.0.300) and Node 22+ ([BUILD.md](BUILD.md) has the full setup):
+**Build it yourself** instead with the .NET 10 SDK (10.0.300), Node 22+ and the Visual Studio C++ build tools ([BUILD.md](BUILD.md) has the full setup):
 
 ```powershell
 git clone https://github.com/mil-orb/ReHome
@@ -120,7 +120,7 @@ dotnet publish src/Rehome.App -c Release -o out   # out\ReHome.exe
 
 ## Command line
 
-`rehome.exe` (from `dotnet publish src/Rehome -c Release`) does the same jobs without a window, for scripts, agents and Windows Sandbox:
+`rehome.exe` (from `dotnet publish src/Rehome -c Release`, about 7 MB plus two winget files beside it) does the same jobs without a window, for scripts, agents and Windows Sandbox:
 
 ```
 rehome scan                    # readable list

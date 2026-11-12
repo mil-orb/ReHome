@@ -2,33 +2,52 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>ReHome</AssemblyName>
     <ApplicationIcon>Rehome.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <RootNamespace>Rehome.Shell</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
-    <SelfContained>true</SelfContained>
-    <PublishSingleFile>true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <!-- Portable: one exe that runs on a fresh Windows with no .NET installed. Compression roughly halves it. -->
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
     <!--
-      Managed code loads from inside the exe, never from disk. Only native DLLs (WebView2Loader, winget's COM factory)
-      are unpacked to %TEMP%\.net, which the user can write to. The elevated install helper is this same exe, and it
-      loads neither of them: it only starts winget.exe. Don't turn on IncludeAllContentForSelfExtract, which would
-      make the elevated copy load every assembly from that folder.
+      Published with NativeAOT: one native exe with no .NET runtime to unpack, no JIT, and no profiler or
+      diagnostics hooks for an environment variable to switch on in the elevated helper. A developer build
+      (dotnet build, dotnet run) is still a normal .NET app beside loose DLLs.
     -->
-    <DebugType>embedded</DebugType>
+    <PublishAot>true</PublishAot>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <SelfContained>true</SelfContained>
     <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
-    <!-- The WebView2 package ships a WPF assembly we don't load. Its WindowsBase version mismatch is harmless here. -->
-    <MSBuildWarningsAsMessages>MSB3277</MSBuildWarningsAsMessages>
   </PropertyGroup>
 
+
+
   <ItemGroup>
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+    <!-- Used for its loader only. ReHome talks to WebView2's COM API itself (Native/WebView2.cs). -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" GeneratePathProperty="true" />
     <PackageReference Include="Microsoft.WindowsPackageManager.ComInterop" Version="$(WingetInteropVersion)" />
     <ProjectReference Include="..\Rehome.Core\Rehome.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    The WebView2 package's targets reference its .NET wrapper (Core, WinForms, WPF). That wrapper needs built-in
+    COM interop, which NativeAOT doesn't have, and nothing here uses it. Drop the references so nothing can.
+  -->
+  <Target Name="DropWebView2Wrapper" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="$([System.String]::Copy('%(Filename)').StartsWith('Microsoft.Web.WebView2.'))" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    The WebView2 loader is linked into the published exe from the package's static library, so no DLL sits beside
+    it. version.lib is the loader's own dependency. /DEPENDENTLOADFLAG makes Windows resolve the exe's imports
+    from System32 only, so a DLL dropped next to the exe (for example a version.dll) is never loaded.
+  -->
+  <ItemGroup>
+    <DirectPInvoke Include="WebView2Loader" />
+    <NativeLibrary Include="$(PkgMicrosoft_Web_WebView2)\build\native\x64\WebView2LoaderStatic.lib" />
+    <NativeLibrary Include="version.lib" />
+    <LinkerArg Include="/DEPENDENTLOADFLAG:0x800" />
   </ItemGroup>
 
   <!--
@@ -60,23 +79,23 @@
   </Target>
 
   <!--
-    winget's COM projection DLLs go in the bundle like any other assembly; the native factory is unpacked with the
-    other native libraries at first run.
-    Microsoft.Management.Deployment.winmd has to sit beside the running exe: WinRT reads it to marshal calls to
-    winget's out-of-process server, and for an unpackaged app Windows only looks in the exe's own folder. It's
-    embedded instead of published, and Portable.cs puts it beside a private copy of the exe at first run, so the
+    winget's API needs two files in the folder of the running exe: Microsoft.Management.Deployment.winmd, which
+    WinRT reads to marshal calls to winget's out-of-process server, and Microsoft.Management.Deployment.dll, the
+    small native factory that starts it. For an unpackaged app Windows only looks beside the exe. Both are embedded
+    instead of published, and Portable.cs writes them beside a private copy of the exe at first run, so the
     published app is one file.
   -->
-  <Target Name="EmbedWingetMetadata" AfterTargets="ResolveAssemblyReferences">
+  <Target Name="EmbedWingetFiles" AfterTargets="ResolveAssemblyReferences">
     <ItemGroup>
-      <EmbeddedResource Include="@(ReferenceCopyLocalPaths)" Condition="'%(Extension)' == '.winmd'" LogicalName="%(Filename)%(Extension)" />
+      <EmbeddedResource Include="@(ReferenceCopyLocalPaths)" Condition="'%(Filename)%(Extension)' == 'Microsoft.Management.Deployment.winmd' or '%(Filename)%(Extension)' == 'Microsoft.Management.Deployment.dll'" LogicalName="%(Filename)%(Extension)" />
     </ItemGroup>
   </Target>
 
-  <Target Name="BundleWingetInterop" BeforeTargets="_ComputeFilesToBundle">
+  <Target Name="PublishOneFile" AfterTargets="ComputeResolvedFilesToPublishList">
     <ItemGroup>
-      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.winmd'" />
-      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'Microsoft.Management.Deployment.winmd' or '%(Filename)%(Extension)' == 'Microsoft.Management.Deployment.dll'" />
+      <!-- A developer build loads WebView2Loader.dll from beside it. The published exe has the loader linked in. -->
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'WebView2Loader.dll'" />
     </ItemGroup>
   </Target>
 
